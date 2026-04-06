@@ -1,0 +1,45 @@
+[package]
+name = "passport-prover"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "passport_prover"
+path = "src/lib.rs"
+
+[[bin]]
+name = "passport-prover"
+path = "src/main.rs"
+
+[dependencies]
+# ProveKit workspace crates (path deps for now, crates.io later)
+passport-input-gen = { path = "../v1-provekit/provekit/playground/passport-input-gen" }
+provekit-common = { path = "../v1-provekit/provekit/provekit/common" }
+provekit-prover = { path = "../v1-provekit/provekit/provekit/prover" }
+# Noir ABI for InputMap construction + input parsing
+noirc_abi = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
+# For native Poseidon2 permutation (used to compute csc_key_ne_hash)
+bn254_blackbox_solver = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
+acir = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
+
+# Only strictly needed deps — everything else comes transitively
+anyhow = "1"
+clap = { version = "4", features = ["derive"], default-features = false }
+serde_json = "1.0"
+chrono = "0.4"
+hex = "0.4"
+ark-ff = { version = "0.5", features = ["std"] }
+
+# Pin blake3 to match provekit workspace (1.8.4 breaks whir's digest traits)
+blake3 = "=1.8.3"
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = "fat"
+
+[profile.release-mobile]
+inherits = "release"
+opt-level = "z"
+strip = true
+panic = "abort"
