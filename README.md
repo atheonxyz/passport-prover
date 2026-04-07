@@ -52,7 +52,7 @@ A CSCA public key registry (`csca_registry/csca_public_key.json`) is included fo
 | | Rust | Kotlin | Swift |
 |---|---|---|---|
 | **Purpose** | End-to-end ZK proof generation (native) | End-to-end ZK proof generation (JVM/Android) | End-to-end ZK proof generation (iOS/macOS) |
-| **Language** | Rust (nightly-2026-03-04) | Kotlin 1.9.24 / JVM 21 | Swift 5.9+ |
+| **Language** | Rust (nightly-2026-03-04) | Kotlin 1.9.24 / JVM 21 | Swift 6.0 |
 | **Key Libraries** | Noir, ProveKit, bn254 | BouncyCastle, Verity SDK (JNI) | Verity SDK, BigInt, CommonCrypto |
 | **ASN.1/CMS Parsing** | Custom Rust | BouncyCastle | Custom DER parser |
 | **Poseidon2** | bn254_blackbox_solver | Pure Kotlin (BigInteger) | Pure Swift (BigUInt, ported from Kotlin) |
