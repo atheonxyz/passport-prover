@@ -11,7 +11,7 @@ Two external repos are required. Clone them as siblings to this repo:
 ```bash
 # From the parent directory of passport-prover:
 git clone https://github.com/atheonxyz/verity
-git clone -b v1 https://github.com/worldfnd/provekit
+git clone -b v1 https://github.com/worldfnd/proveki
 ```
 
 Expected directory layout:
