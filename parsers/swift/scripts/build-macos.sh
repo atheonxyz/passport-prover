@@ -1,18 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 
-# Build libverity.a static library for macOS (Apple Silicon) with ProveKit backend.
+# Build Verity xcframework for macOS (Apple Silicon) with ProveKit backend.
 # This enables the Swift CLI to run the full proving pipeline on macOS.
 #
 # Prerequisites:
 #   1. ProveKit FFI must be built:
-#      cd <provekit> && cargo build --release -p provekit-ffi
+#      cd $PROVEKIT_ROOT && cargo build --release -p provekit-ffi
 #
 # Usage:
 #   bash scripts/build-macos.sh
 #
-# Then build the Swift package with the native library:
-#   VERITY_SWIFT_SDK_MODE=native swift build
+# Then build and run the Swift CLI:
+#   VERITY_SWIFT_SDK_MODE=native VERITY_DIR=$VERITY_DIR swift build
+#   VERITY_SWIFT_SDK_MODE=native VERITY_DIR=$VERITY_DIR swift run passport-prover ...
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SDK_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -32,7 +33,7 @@ if [ ! -f "$PK_FFI" ]; then
     exit 1
 fi
 
-echo "=== Building Verity static library for macOS (ProveKit) ==="
+echo "=== Building Verity xcframework for macOS (ProveKit) ==="
 echo "Verity dir:    $VERITY_DIR"
 echo "ProveKit FFI:  $PK_FFI"
 echo ""
@@ -53,99 +54,62 @@ echo "Compiling PK backend..."
 $CC -c -I"$INCLUDE_DIR" -I"$DISPATCHER_DIR" -I"$DISPATCHER_DIR/include" -fPIC -arch $ARCH \
     "$DISPATCHER_DIR/backends/pk_backend.c" -o "$WORK_DIR/pk_backend.o"
 
-# Create a combined static library with dispatch + pk_backend + provekit_ffi
-echo "Creating combined static library..."
+# Extract all static libraries into object files for a combined archive
+echo "Extracting static libraries..."
 COMBINED_DIR="$WORK_DIR/combined"
 mkdir -p "$COMBINED_DIR"
 
-# Extract ProveKit FFI objects
 pushd "$COMBINED_DIR" > /dev/null
 ar x "$PK_FFI"
-popd > /dev/null
 
-# Collect extra build deps from ProveKit (blake3, ring, lzma, etc.)
+# Collect ProveKit build deps (blake3, ring, lzma, etc.)
 PK_BUILD_DIR="$PROVEKIT_ROOT/target/release/build"
 if [ -d "$PK_BUILD_DIR" ]; then
     for lib in $(find "$PK_BUILD_DIR" -name "lib*.a" 2>/dev/null); do
-        pushd "$COMBINED_DIR" > /dev/null
         ar x "$lib" 2>/dev/null || true
-        popd > /dev/null
     done
 fi
+popd > /dev/null
 
-# Also extract any deps from verity core build dir
-VERITY_BUILD_DIR="$CORE_DIR/target/release/build"
-if [ -d "$VERITY_BUILD_DIR" ]; then
-    for lib in $(find "$VERITY_BUILD_DIR" -name "lib*.a" 2>/dev/null); do
-        pushd "$COMBINED_DIR" > /dev/null
-        ar x "$lib" 2>/dev/null || true
-        popd > /dev/null
-    done
-fi
-
-# Build the fat static lib
-echo "Archiving libverity.a..."
+# Create combined static library
+echo "Creating libverity.a..."
 ar rcs "$WORK_DIR/libverity.a" \
     "$WORK_DIR/verity_dispatch.o" \
     "$WORK_DIR/pk_backend.o" \
     "$COMBINED_DIR"/*.o
 
-# Create xcframework directory structure for macOS
-XCFW_DIR="$OUTPUT_DIR/Verity.xcframework"
-MACOS_DIR="$XCFW_DIR/macos-arm64"
-HEADERS_DIR="$MACOS_DIR/Headers"
-
-echo "Creating xcframework at $XCFW_DIR..."
+# Prepare headers
+HEADERS_DIR="$WORK_DIR/headers"
 mkdir -p "$HEADERS_DIR"
-
-cp "$WORK_DIR/libverity.a" "$MACOS_DIR/libverity.a"
-cp "$INCLUDE_DIR/verity_ffi.h" "$HEADERS_DIR/"
+cp "$DISPATCHER_DIR/include/verity_ffi.h" "$HEADERS_DIR/"
 cp "$INCLUDE_DIR/verity_ffi_raw.h" "$HEADERS_DIR/"
-cp "$DISPATCHER_DIR/include/verity_ffi.h" "$HEADERS_DIR/" 2>/dev/null || true
 
-# Write Info.plist
-cat > "$XCFW_DIR/Info.plist" << 'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>AvailableLibraries</key>
-    <array>
-        <dict>
-            <key>BinaryPath</key>
-            <string>libverity.a</string>
-            <key>HeadersPath</key>
-            <string>Headers</string>
-            <key>LibraryIdentifier</key>
-            <string>macos-arm64</string>
-            <key>SupportedArchitectures</key>
-            <array>
-                <string>arm64</string>
-            </array>
-            <key>SupportedPlatform</key>
-            <string>macos</string>
-        </dict>
-    </array>
-    <key>CFBundlePackageType</key>
-    <string>XFWK</string>
-    <key>XCFrameworkFormatVersion</key>
-    <string>1.0</string>
-</dict>
-</plist>
-PLIST
+cat > "$HEADERS_DIR/module.modulemap" << 'MMAP'
+framework module VerityFFI {
+    header "verity_ffi.h"
+    export *
+}
+MMAP
 
-# Write backends marker
-echo "provekit" > "$XCFW_DIR/backends"
+# Create xcframework using xcodebuild
+echo "Creating xcframework..."
+rm -rf "$OUTPUT_DIR/Verity.xcframework"
+mkdir -p "$OUTPUT_DIR"
+
+xcodebuild -create-xcframework \
+    -library "$WORK_DIR/libverity.a" \
+    -headers "$HEADERS_DIR" \
+    -output "$OUTPUT_DIR/Verity.xcframework"
+
+# Write backends marker (used by Verity SDK Package.swift)
+echo "provekit" > "$OUTPUT_DIR/Verity.xcframework/backends"
 
 echo ""
 echo "=== Done! ==="
-ls -lh "$MACOS_DIR/libverity.a"
+ls -lh "$OUTPUT_DIR/Verity.xcframework"
 echo ""
-echo "xcframework: $XCFW_DIR"
-echo ""
-echo "Now build the Swift CLI with native backend:"
+echo "Now build and run:"
 echo "  cd $SDK_DIR"
-echo "  VERITY_SWIFT_SDK_MODE=native swift build"
-echo ""
-echo "Then run:"
-echo "  VERITY_SWIFT_SDK_MODE=native swift run passport-prover --dg1 ... --sod ... --pkp_dir ... --csca_registry ..."
+echo "  VERITY_SWIFT_SDK_MODE=native VERITY_DIR=$VERITY_DIR swift build"
+echo "  VERITY_SWIFT_SDK_MODE=native VERITY_DIR=$VERITY_DIR swift run passport-prover \\"
+echo "    --dg1 <path> --sod <path> --pkp_dir ../../pkp --csca_registry ../../csca_registry/csca_public_key.json"

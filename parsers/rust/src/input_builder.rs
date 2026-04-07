@@ -123,7 +123,7 @@ pub fn build_stage4_json(
     service_subscope: &str,
     nullifier_secret: &str,
 ) -> String {
-    let zero_path: Vec<Value> = (0..24)
+    let zero_path: Vec<Value> = (0..poseidon2::MERKLE_DEPTH)
         .map(|_| json!("0x0000000000000000000000000000000000000000000000000000000000000000"))
         .collect();
 

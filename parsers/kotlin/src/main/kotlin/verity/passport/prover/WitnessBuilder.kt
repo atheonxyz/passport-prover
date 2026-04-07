@@ -1,5 +1,7 @@
 package verity.passport.prover
 
+import org.json.JSONArray
+import org.json.JSONObject
 import verity.passport.prover.Constants.RSA_KEY_NE_HASH_DOMAIN
 import verity.passport.prover.Constants.TREE_DEPTH
 import verity.passport.prover.Constants.ZERO_FIELD
@@ -27,34 +29,22 @@ object WitnessBuilder {
     // =========================================================================
 
     fun toJson(witness: Map<String, Any>): String {
-        return serializeJsonObject(witness, indent = 0)
+        return toJsonObject(witness).toString(2)
     }
 
-    private fun serializeJsonObject(obj: Map<String, Any>, indent: Int): String {
-        val pad = "  ".repeat(indent + 1)
-        val closePad = "  ".repeat(indent)
-        val sb = StringBuilder()
-        sb.appendLine("{")
-        val entries = obj.entries.toList()
-        for ((i, entry) in entries.withIndex()) {
-            val comma = if (i < entries.size - 1) "," else ""
-            val (key, value) = entry
+    private fun toJsonObject(map: Map<String, Any>): JSONObject {
+        val obj = JSONObject()
+        for ((key, value) in map) {
             when (value) {
                 is Map<*, *> -> {
                     @Suppress("UNCHECKED_CAST")
-                    val nested = serializeJsonObject(value as Map<String, Any>, indent + 1)
-                    sb.append("$pad\"$key\": $nested$comma\n")
+                    obj.put(key, toJsonObject(value as Map<String, Any>))
                 }
-                is List<*> -> {
-                    sb.appendLine("$pad\"$key\": [${value.joinToString(", ") { "\"$it\"" }}]$comma")
-                }
-                is String -> sb.appendLine("$pad\"$key\": \"$value\"$comma")
-                is Long, is Int -> sb.appendLine("$pad\"$key\": \"$value\"$comma")
-                else -> sb.appendLine("$pad\"$key\": \"$value\"$comma")
+                is List<*> -> obj.put(key, JSONArray(value.map { it.toString() }))
+                else -> obj.put(key, value.toString())
             }
         }
-        sb.append("$closePad}")
-        return sb.toString()
+        return obj
     }
 
     // =========================================================================
@@ -69,9 +59,12 @@ object WitnessBuilder {
         return Poseidon2.fieldToHex(Poseidon2.hash(fields))
     }
 
+    fun computeSodHashRaw(econtent: ByteArray): BigInteger {
+        return Poseidon2.hash(Poseidon2.packBytesIntoFields(econtent))
+    }
+
     fun computeSodHash(econtent: ByteArray): String {
-        val fields = Poseidon2.packBytesIntoFields(econtent)
-        return Poseidon2.fieldToHex(Poseidon2.hash(fields))
+        return Poseidon2.fieldToHex(computeSodHashRaw(econtent))
     }
 
     fun computeCscKeyNeHash(cscaPubkey: ByteArray, cscaExponent: Long): String {

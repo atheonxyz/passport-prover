@@ -26,7 +26,7 @@ fun main(args: Array<String>) {
     val cscaPubKey: ByteArray = when {
         cscaPath != null -> File(cscaPath).readBytes()
         cscaRegistryPath != null -> {
-            val country = if (dg1.size >= 10) String(dg1, 7, 3, Charsets.US_ASCII) else "<<<"
+            val country = PassportReader.extractCountry(dg1)
             val registry = CscaRegistry.load(cscaRegistryPath)
             CscaRegistry.findMatchingKey(registry, country, dg1, sod)
         }

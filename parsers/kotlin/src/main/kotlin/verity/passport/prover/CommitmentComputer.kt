@@ -72,7 +72,7 @@ object CommitmentComputer {
      */
     fun computeLeaf(rDg1: String, dg1: ByteArray, econtent: ByteArray): String {
         val hDg1 = computeHDg1(rDg1, dg1)
-        val sodHash = Poseidon2.hash(Poseidon2.packBytesIntoFields(econtent))
+        val sodHash = WitnessBuilder.computeSodHashRaw(econtent)
         return Poseidon2.fieldToHex(Poseidon2.hash(listOf(hDg1, sodHash)))
     }
 
@@ -89,7 +89,7 @@ object CommitmentComputer {
         serviceSubscope: String,
         nullifierSecret: String,
     ): String {
-        val sodHash = Poseidon2.hash(Poseidon2.packBytesIntoFields(econtent))
+        val sodHash = WitnessBuilder.computeSodHashRaw(econtent)
 
         // private_nullifier for t_attest = Poseidon2(packed_dg1 ++ [sod_hash])
         val nullFields = mutableListOf<BigInteger>()

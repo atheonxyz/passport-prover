@@ -26,10 +26,10 @@ pub struct PipelineResult {
     pub scoped_nullifier: String,
 }
 
-/// Convert an ark FieldElement to a 0x-prefixed hex string.
+/// Convert a provekit FieldElement to a 0x-prefixed hex string.
 fn field_to_hex(f: &FieldElement) -> String {
-    let bigint = f.into_bigint();
-    let bytes = bigint.to_bytes_be();
+    use ark_ff::{BigInteger, PrimeField};
+    let bytes = f.into_bigint().to_bytes_be();
     format!("0x{}", hex::encode(bytes))
 }
 

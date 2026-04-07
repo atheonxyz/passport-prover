@@ -27,7 +27,7 @@ object Pipeline {
         val pipelineStart = System.nanoTime()
         val verity = Verity(Backend.PROVEKIT)
 
-        val tbsCert = data.tbsCertificate720.padToSize(MAX_TBS_SIZE_1300)
+        val tbsCert = PassportReader.fitBytes(data.tbsCertificate720, MAX_TBS_SIZE_1300, "TBS certificate")
 
         // Compute all commitment values natively (Verity SDK doesn't expose public outputs)
         var t = System.nanoTime()
@@ -172,10 +172,4 @@ object Pipeline {
 
     private fun ByteArray.toIntList(): List<Int> = map { it.toInt() and 0xFF }
 
-    private fun ByteArray.padToSize(targetSize: Int): ByteArray {
-        if (this.size >= targetSize) return this
-        val padded = ByteArray(targetSize)
-        this.copyInto(padded)
-        return padded
-    }
 }

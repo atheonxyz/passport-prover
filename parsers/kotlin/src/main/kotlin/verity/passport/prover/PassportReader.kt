@@ -150,13 +150,7 @@ class PassportReader(
         )
     }
 
-    private fun extractCountry(): String {
-        return if (dg1.size >= 10) {
-            String(dg1, 7, 3, Charsets.US_ASCII)
-        } else {
-            "<<<"
-        }
-    }
+    private fun extractCountry(): String = extractCountry(dg1)
 
     private fun extractDscCert(dscModulus: ByteArray, targetSize: Int): Triple<ByteArray, Int, Int> {
         val tbsBytes = sod.certificate.tbs.bytes
@@ -166,6 +160,14 @@ class PassportReader(
     }
 
     companion object {
+        fun extractCountry(dg1: ByteArray): String {
+            return if (dg1.size >= 10) {
+                String(dg1, 7, 3, Charsets.US_ASCII)
+            } else {
+                "<<<"
+            }
+        }
+
         fun fitBytes(data: ByteArray, size: Int, label: String): ByteArray {
             if (data.size > size) {
                 throw PassportError.BufferOverflow("$label: ${data.size} bytes exceeds buffer $size")

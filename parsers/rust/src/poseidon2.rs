@@ -8,6 +8,7 @@ use acir::AcirField;
 type F = acir::FieldElement;
 
 const RATE: usize = 3;
+pub const MERKLE_DEPTH: usize = 24;
 
 fn permutation(state: &mut [F; 4]) {
     let result =
@@ -142,7 +143,7 @@ pub fn compute_sod_hash(econtent: &[u8; 200]) -> F {
 /// Used for testing when the sequencer hasn't registered the leaf yet.
 pub fn compute_test_merkle_root(leaf: F) -> F {
     let mut current = leaf;
-    for _ in 0..24 {
+    for _ in 0..MERKLE_DEPTH {
         current = poseidon2_hash(&[current, F::zero()]);
     }
     current

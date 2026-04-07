@@ -110,10 +110,6 @@ public enum Poseidon2 {
         return result[0]
     }
 
-    public static func hash(_ hexInputs: String...) -> BigUInt {
-        hash(hexInputs.map { hexToField($0) })
-    }
-
     public static func hexToField(_ hex: String) -> BigUInt {
         let s = hex.hasPrefix("0x") ? String(hex.dropFirst(2)) : hex
         return BigUInt(s, radix: 16)! % P
@@ -151,8 +147,4 @@ public enum Poseidon2 {
         return fields.reversed()
     }
 
-    /// Convenience: pack [UInt8] array.
-    public static func packBytesIntoFields(_ bytes: [UInt8], bytesPerField: Int = 31) -> [BigUInt] {
-        packBytesIntoFields(Data(bytes), bytesPerField: bytesPerField)
-    }
 }

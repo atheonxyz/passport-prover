@@ -23,6 +23,9 @@ noirc_abi = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" 
 bn254_blackbox_solver = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
 acir = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
 
+# ark-ff for PrimeField trait (used by field_to_hex)
+ark-ff = "0.5"
+
 # Only strictly needed deps — everything else comes transitively
 anyhow = "1"
 clap = { version = "4", features = ["derive"], default-features = false }

@@ -1,6 +1,5 @@
 import Foundation
 import BigInt
-import CommonCrypto
 
 public struct WitnessConfig {
     public let salt1: String
@@ -47,162 +46,10 @@ public struct WitnessConfig {
 
 public enum WitnessBuilder {
 
-    // MARK: - TBS-1300 fragmented circuit chain (5 circuits)
-
-    public static func buildAll1300(
-        data: PassportData,
-        config: WitnessConfig = WitnessConfig(),
-        salt0: String = "0x1"
-    ) -> [String: [String: Any]] {
-        let tbsCert1300 = padToSize(data.tbsCertificate720, targetSize: Constants.maxTbsSize1300)
-        let chunk1 = Data(tbsCert1300.prefix(Constants.chunk1Size))
-
-        let state1 = partialSha256(chunk: chunk1)
-
-        let privateNullifier = computePrivateNullifier(
-            dg1: data.dg1Padded, econtent: data.econtent, sodSignature: data.sodSignature
-        )
-        let sodHash = computeSodHash(econtent: data.econtent)
-        let cscKeyNeHash = computeCscKeyNeHash(cscaPubkey: data.cscaModulus, cscaExponent: data.cscaExponent)
-
-        return [
-            "t_add_dsc_hash_1300": buildDscHash1300(chunk1: chunk1, salt: salt0),
-            "t_add_dsc_verify_1300": buildDscVerify1300(
-                data: data, config: config, tbsCert1300: tbsCert1300, state1: state1,
-                cscKeyNeHash: cscKeyNeHash, salt0: salt0
-            ),
-            "t_add_id_data_1300": buildIdData1300(data: data, config: config, tbsCert1300: tbsCert1300, salt0: salt0),
-            "t_add_integrity_commit": buildIntegrityCommit1300(
-                data: data, config: config, privateNullifier: privateNullifier
-            ),
-            "t_attest": buildAttest1300(data: data, config: config, sodHash: sodHash),
-        ]
-    }
-
-    public static func buildDscHash1300(chunk1: Data, salt: String) -> [String: Any] {
-        [
-            "salt": salt,
-            "chunk1": chunk1.toIntList(),
-        ]
-    }
-
-    public static func buildDscVerify1300(
-        data: PassportData,
-        config: WitnessConfig,
-        tbsCert1300: Data,
-        state1: [Int32],
-        cscKeyNeHash: String,
-        salt0: String
-    ) -> [String: Any] {
-        [
-            "comm_in": Constants.zeroField,
-            "csc_pubkey": data.cscaModulus.toIntList(),
-            "csc_key_ne_hash": cscKeyNeHash,
-            "csc_pubkey_redc_param": data.cscaBarrett.toIntList(),
-            "salt": salt0,
-            "country": data.country,
-            "state1": state1.map { Int($0) },
-            "tbs_certificate": tbsCert1300.toIntList(),
-            "tbs_certificate_len": Int64(data.tbsCertificateLen),
-            "dsc_signature": data.cscaSignature.toIntList(),
-            "exponent": data.cscaExponent,
-            "salt_out": config.salt1,
-        ]
-    }
-
-    public static func buildIdData1300(
-        data: PassportData,
-        config: WitnessConfig,
-        tbsCert1300: Data,
-        salt0: String
-    ) -> [String: Any] {
-        [
-            "comm_in": Constants.zeroField,
-            "salt_in": config.salt1,
-            "salt_out": config.salt2,
-            "dg1": data.dg1Padded.toIntList(),
-            "dsc_pubkey": data.dscModulus.toIntList(),
-            "dsc_pubkey_redc_param": data.dscBarrett.toIntList(),
-            "dsc_pubkey_offset_in_dsc_cert": Int64(data.dscPubkeyOffset),
-            "exponent": data.dscExponent,
-            "exponent_offset_in_dsc_cert": Int64(data.dscExponentOffset),
-            "sod_signature": data.sodSignature.toIntList(),
-            "tbs_certificate": tbsCert1300.toIntList(),
-            "signed_attributes": data.signedAttrs.toIntList(),
-            "e_content": data.econtent.toIntList(),
-        ]
-    }
-
-    public static func buildIntegrityCommit1300(
-        data: PassportData,
-        config: WitnessConfig,
-        privateNullifier: String
-    ) -> [String: Any] {
-        [
-            "comm_in": Constants.zeroField,
-            "salt_in": config.salt2,
-            "dg1": data.dg1Padded.toIntList(),
-            "dg1_padded_length": Int64(data.dg1Len),
-            "dg1_hash_offset": Int64(data.dg1HashOffset),
-            "signed_attributes": data.signedAttrs.toIntList(),
-            "signed_attributes_size": Int64(data.signedAttributesSize),
-            "e_content": data.econtent.toIntList(),
-            "e_content_len": Int64(data.econtentLen),
-            "private_nullifier": privateNullifier,
-            "r_dg1": config.rDg1,
-        ]
-    }
-
-    public static func buildAttest1300(
-        data: PassportData,
-        config: WitnessConfig,
-        sodHash: String
-    ) -> [String: Any] {
-        [
-            "root": config.merkleRoot,
-            "current_date": config.currentDate,
-            "service_scope": config.serviceScope,
-            "service_subscope": config.serviceSubscope,
-            "dg1": data.dg1Padded.toIntList(),
-            "r_dg1": config.rDg1,
-            "sod_hash": sodHash,
-            "leaf_index": config.leafIndex,
-            "merkle_path": config.merklePath,
-            "min_age_required": config.minAgeRequired,
-            "max_age_required": config.maxAgeRequired,
-            "nullifier_secret": config.nullifierSecret,
-        ]
-    }
-
     // MARK: - Serialization
 
     public static func toJson(_ witness: [String: Any]) -> String {
         serializeJsonObject(witness, indent: 0)
-    }
-
-    public static func toToml(_ witness: [String: Any]) -> String {
-        var sb = ""
-        for (key, value) in witness {
-            switch value {
-            case let list as [Any]:
-                if let strings = list as? [String] {
-                    sb += "\(key) = [\(strings.map { "\"\($0)\"" }.joined(separator: ", "))]\n"
-                } else {
-                    sb += "\(key) = [\(list.map { "\($0)" }.joined(separator: ", "))]\n"
-                }
-            case let s as String:
-                sb += "\(key) = \"\(s)\"\n"
-            case let n as Int64:
-                sb += "\(key) = \(n)\n"
-            case let n as Int:
-                sb += "\(key) = \(n)\n"
-            case let n as UInt64:
-                sb += "\(key) = \(n)\n"
-            default:
-                sb += "\(key) = \"\(value)\"\n"
-            }
-        }
-        return sb
     }
 
     private static func serializeJsonObject(_ obj: [String: Any], indent: Int) -> String {
