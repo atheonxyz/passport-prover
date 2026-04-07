@@ -7,7 +7,6 @@
 use {
     crate::{input_builder, poseidon2},
     anyhow::{Context, Result},
-    ark_ff::{BigInteger, PrimeField},
     noirc_abi::input_parser::Format,
     passport_input_gen::CircuitInputs,
     provekit_common::{file, register_ntt, FieldElement, NoirProof, Prover},

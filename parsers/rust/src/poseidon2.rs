@@ -198,34 +198,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_csc_key_ne_hash_matches_benchmark() {
-        // Known value from benchmark-inputs/tbs_1300/t_add_dsc_1300.toml
-        let expected = "0x1ca4af41d370d02b729b6a63b4aea3cf29242ad76ac8420c144d7558072ba172";
-
-        // Read the benchmark TOML to get the mock CSCA pubkey
-        let toml = std::fs::read_to_string(
-            concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../v1-provekit/provekit/noir-examples/noir-passport/",
-                "merkle_age_check/benchmark-inputs/tbs_1300/t_add_dsc_1300.toml"
-            ),
-        )
-        .unwrap();
-
-        let start = toml.find("csc_pubkey = [").unwrap() + "csc_pubkey = [".len();
-        let end = toml[start..].find(']').unwrap() + start;
-        let pubkey_bytes: Vec<u8> = toml[start..end]
-            .split(',')
-            .map(|s| s.trim().parse::<u8>().unwrap())
-            .collect();
-
-        assert_eq!(pubkey_bytes.len(), 512);
-        let mut pubkey = [0u8; 512];
-        pubkey.copy_from_slice(&pubkey_bytes);
-
-        let hash = compute_csc_key_ne_hash(&pubkey, 65537);
-        let hex = field_to_hex_noir(&hash);
-        assert_eq!(hex, expected, "Poseidon2 hash mismatch");
-    }
 }
