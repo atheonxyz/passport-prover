@@ -14,9 +14,9 @@ path = "src/main.rs"
 [dependencies]
 # ProveKit workspace crates — clone https://github.com/worldfnd/provekit (branch v1)
 # Set PROVEKIT_ROOT env var or place at ../../provekit relative to this repo.
-passport-input-gen = { path = "/Users/rosejethani/workspace/v1-provekit/provekit/playground/passport-input-gen" }
-provekit-common = { path = "/Users/rosejethani/workspace/v1-provekit/provekit/provekit/common" }
-provekit-prover = { path = "/Users/rosejethani/workspace/v1-provekit/provekit/provekit/prover" }
+passport-input-gen = { git = "https://github.com/worldfnd/provekit", branch = "v1" }
+provekit-common = { git = "https://github.com/worldfnd/provekit", branch = "v1" }
+provekit-prover = { git = "https://github.com/worldfnd/provekit", branch = "v1" }
 # Noir ABI for InputMap construction + input parsing
 noirc_abi = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
 # For native Poseidon2 permutation (used to compute csc_key_ne_hash)
