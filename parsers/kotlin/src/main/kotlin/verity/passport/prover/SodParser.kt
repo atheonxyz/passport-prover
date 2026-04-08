@@ -8,9 +8,17 @@ import org.bouncycastle.asn1.cms.CMSAttributes
 import org.bouncycastle.asn1.x509.Certificate
 import java.time.Instant
 
-object SodParser {
+/**
+ * Parses raw SOD (Security Object Document) bytes from an ePassport into
+ * the internal [SOD] domain model using ASN.1 / CMS structures.
+ */
+public object SodParser {
 
-    fun parse(rawBytes: ByteArray): SOD {
+    /**
+     * Parses the raw SOD bytes (with optional 0x77 length prefix) into a [SOD]
+     * containing the encapsulated content, DSC certificate, and signer info.
+     */
+    public fun parse(rawBytes: ByteArray): SOD {
         val bytes = stripLengthPrefix(rawBytes)
 
         val contentInfo = try {
@@ -76,13 +84,13 @@ object SodParser {
             ?: throw PassportError.Asn1DecodingFailed("Unsupported hash algorithm: ${hashAlgId.algorithm.id}")
 
         val dgHashSeq = ASN1Sequence.getInstance(ldsEnum.nextElement())
-        val dgHashValues = mutableMapOf<Int, ByteArray>()
-
-        for (i in 0 until dgHashSeq.size()) {
-            val dgHash = ASN1Sequence.getInstance(dgHashSeq.getObjectAt(i))
-            val dgNumber = (dgHash.getObjectAt(0) as ASN1Integer).intValueExact()
-            val dgHashValue = (dgHash.getObjectAt(1) as ASN1OctetString).octets
-            dgHashValues[dgNumber] = dgHashValue
+        val dgHashValues = buildMap<Int, ByteArray> {
+            for (i in 0 until dgHashSeq.size()) {
+                val dgHash = ASN1Sequence.getInstance(dgHashSeq.getObjectAt(i))
+                val dgNumber = (dgHash.getObjectAt(0) as ASN1Integer).intValueExact()
+                val dgHashValue = (dgHash.getObjectAt(1) as ASN1OctetString).octets
+                put(dgNumber, dgHashValue)
+            }
         }
 
         return EContent(

@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.9.24"
+    kotlin("jvm") version "2.0.21"
     application
 }
 
@@ -32,15 +32,15 @@ sourceSets {
 
 dependencies {
     // ASN.1 / CMS / X.509 parsing
-    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
-    implementation("org.bouncycastle:bcpkix-jdk18on:1.78.1")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.79")
+    implementation("org.bouncycastle:bcpkix-jdk18on:1.79")
 
     // JSON (used by Verity SDK's Witness.fromJson and our witness serialization)
     implementation("org.json:json:20240303")
 
     // Testing
     testImplementation(kotlin("test"))
-    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
 }
 
 kotlin {
@@ -49,6 +49,10 @@ kotlin {
 
 application {
     mainClass.set("verity.passport.prover.MainKt")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 // Build a fat JAR with all dependencies

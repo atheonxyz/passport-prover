@@ -9,40 +9,25 @@ import verity.passport.prover.Constants.MAX_TBS_SIZE_1300
 import verity.passport.prover.Constants.SIG_BYTES
 import java.security.MessageDigest
 
-data class PassportData(
-    val dg1Padded: ByteArray,
-    val dg1Len: Int,
-    val signedAttrs: ByteArray,
-    val signedAttributesSize: Int,
-    val econtent: ByteArray,
-    val econtentLen: Int,
-    val dscModulus: ByteArray,
-    val dscExponent: Long,
-    val dscBarrett: ByteArray,
-    val sodSignature: ByteArray,
-    val cscaModulus: ByteArray,
-    val cscaExponent: Long,
-    val cscaBarrett: ByteArray,
-    val cscaSignature: ByteArray,
-    val country: String,
-    val dg1HashOffset: Int,
-    val tbsCertificate720: ByteArray,
-    val tbsCertificateLen: Int,
-    val dscPubkeyOffset: Int,
-    val dscExponentOffset: Int,
-)
-
-class PassportReader(
+/**
+ * Reads and extracts all fields from a parsed ePassport SOD and DG1
+ * that are required to generate a ZK proof via the ProveKit pipeline.
+ */
+public class PassportReader(
     private val dg1: ByteArray,
     private val sod: SOD,
     private val cscaPublicKey: ByteArray? = null
 ) {
 
-    fun extract(): PassportData {
+    /**
+     * Extracts and assembles all [PassportData] fields needed for ZK proof generation,
+     * including padded buffers, moduli, Barrett reductions, and byte offsets.
+     */
+    public fun extract(): PassportData {
         val dg1Padded = fitBytes(dg1, MAX_DG1_SIZE, "DG1")
 
-        val (signedAttrs, signedAttrsSize) = extractSignedAttrs()
-        val (econtent, econtentLen, econtentRaw) = extractEcontent()
+        val (signedAttrsPadded, signedAttrsSize) = extractSignedAttrs()
+        val (econtentPadded, econtentLen, econtentRaw) = extractEcontent()
         val (dscModulus, dscExponent, dscBarrett, sodSignature) = extractDsc()
         val (cscaModulus, cscaExponent, cscaBarrett, cscaSignature) = extractCsca()
 
@@ -60,9 +45,9 @@ class PassportReader(
         return PassportData(
             dg1Padded = dg1Padded,
             dg1Len = dg1.size,
-            signedAttrs = signedAttrs,
+            signedAttrs = signedAttrsPadded,
             signedAttributesSize = signedAttrsSize,
-            econtent = econtent,
+            econtent = econtentPadded,
             econtentLen = econtentLen,
             dscModulus = dscModulus,
             dscExponent = dscExponent,
@@ -81,7 +66,11 @@ class PassportReader(
         )
     }
 
-    fun validate() {
+    /**
+     * Validates DG1 hash consistency against the SOD encapsulated content,
+     * and validates the eContent hash against the signed attributes message digest.
+     */
+    public fun validate() {
         val dg1Hash = MessageDigest.getInstance("SHA-256").digest(dg1)
         val dg1FromEcontent = sod.encapContentInfo.dataGroupHashValues.values[1]
             ?: throw PassportError.MissingDg1Hash()
@@ -91,25 +80,24 @@ class PassportReader(
         }
 
         val econtentHash = MessageDigest.getInstance("SHA-256").digest(sod.encapContentInfo.bytes)
-        var msgDigest = sod.signerInfo.signedAttrs.messageDigest
-        if (msgDigest.size > 2 && msgDigest[0] == 0x04.toByte()) {
-            msgDigest = msgDigest.copyOfRange(2, msgDigest.size)
+        val msgDigest = sod.signerInfo.signedAttrs.messageDigest.let { raw ->
+            if (raw.size > 2 && raw[0] == 0x04.toByte()) raw.copyOfRange(2, raw.size) else raw
         }
         if (!econtentHash.contentEquals(msgDigest)) {
             throw PassportError.EcontentHashMismatch()
         }
     }
 
-    private fun extractSignedAttrs(): Pair<ByteArray, Int> {
+    private fun extractSignedAttrs(): SignedAttrsResult {
         val raw = sod.signerInfo.signedAttrs.bytes
         val padded = fitBytes(raw, MAX_SIGNED_ATTRIBUTES_SIZE, "SignedAttributes")
-        return Pair(padded, raw.size)
+        return SignedAttrsResult(padded, raw.size)
     }
 
-    private fun extractEcontent(): Triple<ByteArray, Int, ByteArray> {
+    private fun extractEcontent(): EcontentResult {
         val raw = sod.encapContentInfo.bytes
         val padded = fitBytes(raw, MAX_ECONTENT_SIZE, "eContent")
-        return Triple(padded, raw.size, raw)
+        return EcontentResult(padded, raw.size, raw)
     }
 
     private fun extractDsc(): DscFields {
@@ -152,15 +140,21 @@ class PassportReader(
 
     private fun extractCountry(): String = extractCountry(dg1)
 
-    private fun extractDscCert(dscModulus: ByteArray, targetSize: Int): Triple<ByteArray, Int, Int> {
+    private fun extractDscCert(dscModulus: ByteArray, targetSize: Int): DscCertResult {
         val tbsBytes = sod.certificate.tbs.bytes
         val padded = fitBytes(tbsBytes, targetSize, "TBS certificate")
         val pubkeyOffset = findOffset(tbsBytes, dscModulus, "DSC modulus in TBS")
-        return Triple(padded, tbsBytes.size, pubkeyOffset)
+        return DscCertResult(padded, tbsBytes.size, pubkeyOffset)
     }
 
-    companion object {
-        fun extractCountry(dg1: ByteArray): String {
+    /**
+     * Companion object exposing utility functions used by the passport proving pipeline.
+     */
+    public companion object {
+        /**
+         * Extracts the 3-character ISO country code from the MRZ in DG1.
+         */
+        public fun extractCountry(dg1: ByteArray): String {
             return if (dg1.size >= 10) {
                 String(dg1, 7, 3, Charsets.US_ASCII)
             } else {
@@ -168,7 +162,11 @@ class PassportReader(
             }
         }
 
-        fun fitBytes(data: ByteArray, size: Int, label: String): ByteArray {
+        /**
+         * Copies [data] into a zero-padded [ByteArray] of exactly [size] bytes,
+         * throwing [PassportError.BufferOverflow] if [data] exceeds [size].
+         */
+        public fun fitBytes(data: ByteArray, size: Int, label: String): ByteArray {
             if (data.size > size) {
                 throw PassportError.BufferOverflow("$label: ${data.size} bytes exceeds buffer $size")
             }
@@ -177,7 +175,11 @@ class PassportReader(
             return result
         }
 
-        fun bigIntToFixedBytes(value: java.math.BigInteger, size: Int, label: String): ByteArray {
+        /**
+         * Converts a [java.math.BigInteger] to a fixed-length big-endian [ByteArray] of [size] bytes,
+         * right-aligned with zero padding, stripping any leading sign byte.
+         */
+        public fun bigIntToFixedBytes(value: java.math.BigInteger, size: Int, label: String): ByteArray {
             var bytes = value.toByteArray()
             if (bytes.size > 1 && bytes[0] == 0.toByte()) {
                 bytes = bytes.copyOfRange(1, bytes.size)
@@ -194,7 +196,7 @@ class PassportReader(
          * Find the offset of the RSA exponent value bytes within TBS certificate.
          * Matches Rust's find_exponent_offset: searches for minimal big-endian bytes.
          */
-        fun findExponentOffset(tbs: ByteArray, exponent: Int, tbsLen: Int): Int {
+        public fun findExponentOffset(tbs: ByteArray, exponent: Int, tbsLen: Int): Int {
             val expBe = byteArrayOf(
                 ((exponent shr 24) and 0xFF).toByte(),
                 ((exponent shr 16) and 0xFF).toByte(),
@@ -207,7 +209,11 @@ class PassportReader(
             return findOffset(tbs.copyOf(tbsLen), minimal, "DSC exponent in TBS")
         }
 
-        fun findOffset(haystack: ByteArray, needle: ByteArray, label: String): Int {
+        /**
+         * Searches [haystack] for the first occurrence of [needle], returning its byte offset.
+         * Throws [PassportError.DataNotFound] if [needle] is not found.
+         */
+        public fun findOffset(haystack: ByteArray, needle: ByteArray, label: String): Int {
             outer@ for (i in 0..haystack.size - needle.size) {
                 for (j in needle.indices) {
                     if (haystack[i + j] != needle[j]) continue@outer
@@ -218,6 +224,23 @@ class PassportReader(
         }
     }
 }
+
+private data class SignedAttrsResult(
+    val padded: ByteArray,
+    val size: Int,
+)
+
+private data class EcontentResult(
+    val padded: ByteArray,
+    val length: Int,
+    val raw: ByteArray,
+)
+
+private data class DscCertResult(
+    val tbsCert: ByteArray,
+    val tbsCertLen: Int,
+    val dscPubkeyOffset: Int,
+)
 
 private data class DscFields(
     val modulus: ByteArray,

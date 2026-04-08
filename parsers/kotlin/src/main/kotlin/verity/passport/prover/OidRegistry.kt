@@ -1,6 +1,13 @@
 package verity.passport.prover
 
-object OidRegistry {
+/**
+ * Internal registry that maps ASN.1 OID strings to human-readable names.
+ * Covers PKCS#9 signed-attribute OIDs, ICAO MRTD OIDs, hash-algorithm OIDs,
+ * X.509 RDN attribute OIDs, and common X.509 extension OIDs.
+ *
+ * If an OID is not present in the registry, [getName] returns the raw OID string unchanged.
+ */
+internal object OidRegistry {
 
     private val registry = mapOf(
         // PKCS#9 signed attributes
@@ -44,8 +51,9 @@ object OidRegistry {
         "2.5.29.31" to "cRLDistributionPoints",
         "2.5.29.32" to "certificatePolicies",
         "2.5.29.35" to "authorityKeyIdentifier",
-        "2.5.29.37" to "extKeyUsage"
+        "2.5.29.37" to "extKeyUsage",
     )
 
+    @JvmStatic
     fun getName(oid: String): String = registry[oid] ?: oid
 }

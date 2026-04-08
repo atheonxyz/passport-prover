@@ -2,9 +2,17 @@ package verity.passport.prover
 
 import java.math.BigInteger
 
-object Poseidon2 {
+/**
+ * Poseidon2 hash function implementation over the BN254 scalar field.
+ *
+ * Implements the sponge construction with a 4-element state (rate=3, capacity=1),
+ * using the round constants and internal matrix diagonal defined in [Poseidon2Constants].
+ * All arithmetic is performed modulo [P] (the BN254 scalar field prime).
+ */
+public object Poseidon2 {
 
-    val P: BigInteger = BigInteger("21888242871839275222246405745257275088548364400416034343698204186575808495617")
+    /** BN254 scalar field prime. */
+    public val P: BigInteger = BigInteger("21888242871839275222246405745257275088548364400416034343698204186575808495617")
 
     private val ZERO = BigInteger.ZERO
     private val RATE = 3
@@ -47,7 +55,17 @@ object Poseidon2 {
         }
     }
 
-    fun permutation(inputs: Array<BigInteger>): Array<BigInteger> {
+    /**
+     * Applies the full Poseidon2 permutation to a 4-element state.
+     *
+     * Consists of [rfFirst] full rounds, [rp] partial rounds, and [rfFirst] more full rounds,
+     * using the round constants from [Poseidon2Constants.ROUND_CONSTANTS] and the
+     * internal matrix diagonal from [Poseidon2Constants.INTERNAL_MATRIX_DIAGONAL].
+     *
+     * @param inputs 4-element array of field elements to permute.
+     * @return A new 4-element array containing the permuted state.
+     */
+    public fun permutation(inputs: Array<BigInteger>): Array<BigInteger> {
         val rfFirst = 4
         val rp = 56
         val pEnd = rfFirst + rp
@@ -80,7 +98,18 @@ object Poseidon2 {
         return state
     }
 
-    fun hash(inputs: List<BigInteger>): BigInteger {
+    /**
+     * Hashes a list of field elements using the Poseidon2 sponge construction.
+     *
+     * The capacity element is initialised as `len(inputs) * 2^64` to provide
+     * domain separation. Inputs are absorbed [RATE] elements at a time; the
+     * permutation is applied whenever the internal cache is full. The first
+     * element of the final permuted state is returned as the digest.
+     *
+     * @param inputs List of BN254 field elements to hash.
+     * @return The Poseidon2 hash as a [BigInteger] field element.
+     */
+    public fun hash(inputs: List<BigInteger>): BigInteger {
         val iv = mul(BigInteger.valueOf(inputs.size.toLong()), TWO_POW_64)
 
         val state = arrayOf(ZERO, ZERO, ZERO, iv)
@@ -105,40 +134,71 @@ object Poseidon2 {
         return result[0]
     }
 
-    fun hash(vararg hexInputs: String): BigInteger {
+    /**
+     * Hashes one or more hex-encoded field elements using the Poseidon2 sponge construction.
+     *
+     * Each string is decoded via [hexToField] before hashing.
+     *
+     * @param hexInputs Hex-encoded field element strings (with or without `0x` prefix).
+     * @return The Poseidon2 hash as a [BigInteger] field element.
+     */
+    public fun hash(vararg hexInputs: String): BigInteger {
         return hash(hexInputs.map { hexToField(it) })
     }
 
-    fun hexToField(hex: String): BigInteger {
+    /**
+     * Decodes a hex string into a BN254 field element, reducing modulo [P].
+     *
+     * @param hex Hex string with optional `0x` prefix.
+     * @return The field element as a [BigInteger] in `[0, P)`.
+     */
+    public fun hexToField(hex: String): BigInteger {
         val s = if (hex.startsWith("0x")) hex.substring(2) else hex
         return BigInteger(s, 16).mod(P)
     }
 
-    fun fieldToHex(fe: BigInteger): String {
+    /**
+     * Encodes a BN254 field element as a zero-padded 32-byte hex string with `0x` prefix.
+     *
+     * @param fe Field element to encode; reduced modulo [P] before encoding.
+     * @return Hex string of the form `"0x" + 64 hex digits`.
+     */
+    public fun fieldToHex(fe: BigInteger): String {
         return "0x" + fe.mod(P).toString(16).padStart(64, '0')
     }
 
-    fun packBytesIntoFields(bytes: ByteArray, bytesPerField: Int = 31): List<BigInteger> {
+    /**
+     * Packs a byte array into a list of BN254 field elements in little-endian field order.
+     *
+     * Bytes are grouped into chunks of up to [bytesPerField] bytes each. The first chunk
+     * may be smaller than [bytesPerField] to consume the leading bytes. Each chunk is
+     * interpreted as a big-endian unsigned integer and reduced modulo [P]. The resulting
+     * list is reversed so that the chunk containing the lowest-address bytes appears last,
+     * matching the Noir circuit packing convention.
+     *
+     * @param bytes Raw bytes to pack.
+     * @param bytesPerField Maximum bytes per field element (default 31, safe for BN254).
+     * @return List of field elements in little-endian field order.
+     */
+    public fun packBytesIntoFields(bytes: ByteArray, bytesPerField: Int = 31): List<BigInteger> {
         val numFields = (bytes.size + bytesPerField - 1) / bytesPerField
-        val fields = mutableListOf<BigInteger>()
-
         val firstFieldSize = bytes.size - (numFields - 1) * bytesPerField
         var offset = 0
 
-        var value = ZERO
-        for (i in 0 until firstFieldSize) {
-            value = value.shiftLeft(8).add(BigInteger.valueOf((bytes[offset++].toInt() and 0xFF).toLong()))
-        }
-        fields.add(value.mod(P))
-
-        for (f in 1 until numFields) {
-            value = ZERO
-            for (i in 0 until bytesPerField) {
+        return buildList(numFields) {
+            var value = ZERO
+            for (i in 0 until firstFieldSize) {
                 value = value.shiftLeft(8).add(BigInteger.valueOf((bytes[offset++].toInt() and 0xFF).toLong()))
             }
-            fields.add(value.mod(P))
-        }
+            add(value.mod(P))
 
-        return fields.reversed()
+            for (f in 1 until numFields) {
+                value = ZERO
+                for (i in 0 until bytesPerField) {
+                    value = value.shiftLeft(8).add(BigInteger.valueOf((bytes[offset++].toInt() and 0xFF).toLong()))
+                }
+                add(value.mod(P))
+            }
+        }.reversed()
     }
 }

@@ -8,44 +8,47 @@ import java.security.MessageDigest
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 
-data class CscaEntry(
+public data class CscaEntry(
     val publicKey: ByteArray,
     val subject: String,
     val serial: String,
 )
 
-object CscaRegistry {
+/**
+ * Registry for CSCA (Country Signing Certificate Authority) public keys,
+ * loaded from a JSON file and used to verify DSC certificate signatures.
+ */
+public object CscaRegistry {
 
-    fun load(path: String): Map<String, List<CscaEntry>> {
+    /**
+     * Loads the CSCA registry from a JSON file at [path], returning a map
+     * of ISO country codes to their list of known [CscaEntry] public keys.
+     */
+    public fun load(path: String): Map<String, List<CscaEntry>> {
         val json = JSONObject(File(path).readText())
-        val registry = mutableMapOf<String, List<CscaEntry>>()
-
-        for (country in json.keys()) {
-            val entries = json.getJSONArray(country)
-            val cscaList = mutableListOf<CscaEntry>()
-            for (i in 0 until entries.length()) {
-                val entry = entries.getJSONObject(i)
-                val pubKeyB64 = entry.getString("public_key")
-                val pubKeyBytes = Base64.getDecoder().decode(pubKeyB64)
-                cscaList.add(
-                    CscaEntry(
-                        publicKey = pubKeyBytes,
-                        subject = entry.optString("subject", ""),
-                        serial = entry.optString("serial", ""),
-                    )
-                )
+        return buildMap {
+            for (country in json.keys()) {
+                val entries = json.getJSONArray(country)
+                put(country, buildList {
+                    for (i in 0 until entries.length()) {
+                        val entry = entries.getJSONObject(i)
+                        val pubKeyBytes = Base64.getDecoder().decode(entry.getString("public_key"))
+                        add(CscaEntry(
+                            publicKey = pubKeyBytes,
+                            subject = entry.optString("subject", ""),
+                            serial = entry.optString("serial", ""),
+                        ))
+                    }
+                })
             }
-            registry[country] = cscaList
         }
-
-        return registry
     }
 
     /**
      * Find the matching CSCA public key by verifying the CSCA signature
      * over the DSC TBS certificate, matching the Rust pipeline's approach.
      */
-    fun findMatchingKey(
+    public fun findMatchingKey(
         registry: Map<String, List<CscaEntry>>,
         country: String,
         dg1: ByteArray,

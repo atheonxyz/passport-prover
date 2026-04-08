@@ -4,9 +4,17 @@ import org.bouncycastle.asn1.*
 import org.bouncycastle.asn1.x509.Certificate
 import java.time.Instant
 
-object DscParser {
+/**
+ * Parses a Bouncy Castle [Certificate] into the internal [DSC] domain model,
+ * extracting all fields needed for ePassport ZK proof generation.
+ */
+public object DscParser {
 
-    fun parse(cert: Certificate): DSC {
+    /**
+     * Parses a DER-encoded X.509 [Certificate] into a [DSC] containing
+     * TBS certificate fields, signature algorithm, and raw signature bytes.
+     */
+    public fun parse(cert: Certificate): DSC {
         val tbs = cert.tbsCertificate
         val tbsBytes = tbs.getEncoded(ASN1Encoding.DER)
 

@@ -2,14 +2,16 @@ package verity.passport.prover
 
 import java.io.File
 
-fun main(args: Array<String>) {
+private const val DEFAULT_R_DG1 = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
+public fun main(args: Array<String>) {
     val parsed = parseArgs(args)
 
     val dg1Path = parsed["--dg1"] ?: exitWithUsage("Missing required argument: --dg1")
     val sodPath = parsed["--sod"] ?: exitWithUsage("Missing required argument: --sod")
     val pkpDir = parsed["--pkp_dir"] ?: exitWithUsage("Missing required argument: --pkp_dir")
 
-    val rDg1 = parsed["--r_dg1"] ?: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+    val rDg1 = parsed["--r_dg1"] ?: DEFAULT_R_DG1
     val minAge = parsed["--min_age"]?.toIntOrNull() ?: 18
     val maxAge = parsed["--max_age"]?.toIntOrNull() ?: 0
     val outputDir = parsed["--output"]
@@ -55,14 +57,12 @@ fun main(args: Array<String>) {
 
     // Write proof files if output directory specified
     if (outputDir != null) {
-        val dir = File(outputDir)
-        dir.mkdirs()
+        val dir = File(outputDir).also { it.mkdirs() }
 
         writeProof(dir, "t_add_dsc_1300.np", result.proofStage1.toByteArray())
         writeProof(dir, "t_add_id_data_1300.np", result.proofStage2.toByteArray())
         writeProof(dir, "t_add_integrity_commit.np", result.proofStage3.toByteArray())
         writeProof(dir, "t_attest.np", result.proofStage4.toByteArray())
-
     }
 
     println(result.leaf)
@@ -116,7 +116,5 @@ private fun printUsage() {
     """.trimIndent())
 }
 
-private fun writeProof(dir: File, name: String, data: ByteArray) {
-    val file = File(dir, name)
-    file.writeBytes(data)
-}
+private fun writeProof(dir: File, name: String, data: ByteArray) =
+    File(dir, name).writeBytes(data)
