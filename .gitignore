@@ -19,6 +19,10 @@ parsers/swift/.swiftpm/
 *.iml
 .vscode/
 
+# Prover/verifier key files
+*.pkp
+*.pkv
+
 # OS
 .DS_Store
 

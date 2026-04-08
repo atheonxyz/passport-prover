@@ -74,17 +74,17 @@ pub fn run_pipeline(
 
     let pipeline_start = Instant::now();
 
-    // --- Stage 1: t_add_dsc_1300 ---
+    // --- Stage 1: t_add_dsc_1850 ---
     let t = Instant::now();
-    eprintln!("[1/4] Loading t_add_dsc_1300.pkp...");
-    let prover1 = load_prover(&pkp_dir.join("t_add_dsc_1300-prover.pkp"))?;
+    eprintln!("[1/4] Loading t_add_dsc_1850.pkp...");
+    let prover1 = load_prover(&pkp_dir.join("t_add_dsc_1850-prover.pkp"))?;
     let load_time = t.elapsed();
 
     let json1 = input_builder::build_stage1_json(inputs);
     let input_map1 = parse_inputs(&prover1, &json1)?;
 
     let t = Instant::now();
-    eprintln!("[1/4] Proving t_add_dsc_1300...");
+    eprintln!("[1/4] Proving t_add_dsc_1850...");
     let proof1 = prover1.prove(input_map1).context("Stage 1 proving failed")?;
     let prove_time = t.elapsed();
     let comm_out_1 = field_to_hex(extract_return_value(&proof1));
@@ -95,17 +95,17 @@ pub fn run_pipeline(
         &comm_out_1[..18]
     );
 
-    // --- Stage 2: t_add_id_data_1300 ---
+    // --- Stage 2: t_add_id_data_1850 ---
     let t = Instant::now();
-    eprintln!("[2/4] Loading t_add_id_data_1300.pkp...");
-    let prover2 = load_prover(&pkp_dir.join("t_add_id_data_1300-prover.pkp"))?;
+    eprintln!("[2/4] Loading t_add_id_data_1850.pkp...");
+    let prover2 = load_prover(&pkp_dir.join("t_add_id_data_1850-prover.pkp"))?;
     let load_time = t.elapsed();
 
-    let json2 = input_builder::build_stage2_json(inputs, &comm_out_1);
+    let json2 = input_builder::build_stage2_json(inputs, &comm_out_1)?;
     let input_map2 = parse_inputs(&prover2, &json2)?;
 
     let t = Instant::now();
-    eprintln!("[2/4] Proving t_add_id_data_1300...");
+    eprintln!("[2/4] Proving t_add_id_data_1850...");
     let proof2 = prover2.prove(input_map2).context("Stage 2 proving failed")?;
     let prove_time = t.elapsed();
     let comm_out_2 = field_to_hex(extract_return_value(&proof2));

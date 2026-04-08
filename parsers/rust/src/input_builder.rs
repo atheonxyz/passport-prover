@@ -8,20 +8,6 @@ use crate::poseidon2;
 use passport_input_gen::CircuitInputs;
 use serde_json::{json, Value};
 
-/// Find the offset of the RSA exponent value bytes within the TBS certificate.
-fn find_exponent_offset(tbs: &[u8], tbs_len: usize, exponent: u32) -> usize {
-    let exp_be = exponent.to_be_bytes();
-    let start = exp_be.iter().position(|&b| b != 0).unwrap_or(3);
-    let exp_minimal = &exp_be[start..];
-
-    for i in 0..tbs_len.saturating_sub(exp_minimal.len()) {
-        if &tbs[i..i + exp_minimal.len()] == exp_minimal {
-            return i;
-        }
-    }
-    0
-}
-
 fn u8_slice_to_json(s: &[u8]) -> Value {
     Value::Array(s.iter().map(|&b| json!(b.to_string())).collect())
 }
@@ -57,9 +43,9 @@ pub fn build_stage1_json(inputs: &CircuitInputs) -> String {
 ///
 /// Verifies DSC signature over the passport's signed attributes.
 /// `comm_in` is the commitment output from stage 1.
-pub fn build_stage2_json(inputs: &CircuitInputs, comm_in: &str) -> String {
+pub fn build_stage2_json(inputs: &CircuitInputs, comm_in: &str) -> anyhow::Result<String> {
     let pvc = &inputs.passport_validity_contents;
-    let exp_offset = find_exponent_offset(&pvc.dsc_cert, pvc.dsc_cert_len, pvc.dsc_rsa_exponent);
+    let exp_offset = inputs.exponent_offset()?;
 
     let obj = json!({
         "comm_in": comm_in,
@@ -76,7 +62,7 @@ pub fn build_stage2_json(inputs: &CircuitInputs, comm_in: &str) -> String {
         "signed_attributes": u8_slice_to_json(&pvc.signed_attributes),
         "e_content": u8_slice_to_json(&pvc.econtent),
     });
-    serde_json::to_string(&obj).expect("JSON serialization failed")
+    Ok(serde_json::to_string(&obj).expect("JSON serialization failed"))
 }
 
 /// Stage 3: t_add_integrity_commit

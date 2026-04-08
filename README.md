@@ -6,21 +6,28 @@ Parser implementations for ePassport data extraction and Zero-Knowledge proof ge
 
 ### External Repositories
 
-Two external repos are required. Clone them as siblings to this repo:
+The **Rust parser** has no local dependency requirements — all crates are fetched from GitHub automatically by Cargo.
+
+The **Kotlin** and **Swift** parsers require the Verity SDK. Clone it as a sibling to this repo:
 
 ```bash
 # From the parent directory of passport-prover:
 git clone https://github.com/atheonxyz/verity
+```
+
+For ProveKit FFI builds (needed by Kotlin JNI and Swift native backends):
+
+```bash
 git clone -b v1 https://github.com/worldfnd/provekit
 ```
 
-Expected directory layout:
+Expected directory layout (only needed for Kotlin/Swift):
 
 ```
 workspace/
 ├── passport-prover/     <- this repo
-├── verity/              <- Verity SDK (proving engine)
-└── provekit/            <- ProveKit ZK backend (Rust)
+├── verity/              <- Verity SDK (Kotlin/Swift)
+└── provekit/            <- ProveKit FFI (Kotlin JNI / Swift xcframework)
 ```
 
 Alternatively, set environment variables to point to custom locations:
@@ -34,8 +41,8 @@ export PROVEKIT_ROOT=/path/to/provekit
 
 Pre-compiled prover key files (`.pkp`) are required for proof generation:
 
-- `t_add_dsc_1300-prover.pkp`
-- `t_add_id_data_1300-prover.pkp`
+- `t_add_dsc_1850-prover.pkp`
+- `t_add_id_data_1850-prover.pkp`
 - `t_add_integrity_commit-prover.pkp`
 - `t_attest-prover.pkp`
 
@@ -66,31 +73,36 @@ The Rust parser is the primary proof generation pipeline. It uses ProveKit crate
 
 ### Dependencies
 
-Requires `provekit` cloned at `../../provekit` relative to `parsers/rust/`, or override paths in `Cargo.toml`.
+All Rust dependencies are fetched automatically via `cargo` — no manual cloning or local paths required. The key crates (`passport-input-gen`, `provekit-common`, `provekit-prover`) are pulled from GitHub, along with the Noir toolchain crates.
 
 ### Build & Run
 
 ```bash
 cd parsers/rust
 cargo build --profile release-mobile
+```
 
-./target/release-mobile/passport-prover \
+Run from the **repo root** (the CSCA registry uses a relative path):
+
+```bash
+./parsers/rust/target/release-mobile/passport-prover \
   --dg1 <PATH>       \
   --sod <PATH>       \
-  --pkp_dir <PATH>   \
-  [--r_dg1 <HEX>]   \
-  [--min_age <U8>]   \
-  [--max_age <U8>]   \
+  --pkp-dir <PATH>   \
+  [--r-dg1 <HEX>]   \
+  [--min-age <U8>]   \
+  [--max-age <U8>]   \
   [--output <PATH>]
 ```
 
 ### Example
 
 ```bash
-./target/release-mobile/passport-prover \
-  --dg1 ./data/dg1.bin \
-  --sod ./data/sod.bin \
-  --pkp_dir ../../pkp/ \
+./parsers/rust/target/release-mobile/passport-prover \
+  --dg1 ~/Downloads/dg1_full_data.bin \
+  --sod ~/Downloads/SOD_full_data.bin \
+  --pkp-dir ./pkp/tbs_1850 \
+  --min-age 18 \
   --output ./proofs/
 ```
 
@@ -240,16 +252,16 @@ Validating passport data chain...
 Extracting circuit inputs...
 Country: USA
 Commitments computed in 0.98s
-[1/4] t_add_dsc_1300        done in 1.82s (load 0.48s)  comm_out=0x075058127f421dd4
-[2/4] t_add_id_data_1300    done in 0.94s (load 0.15s)  comm_out=0x13df2cd4cf19ee5e
+[1/4] t_add_dsc_1850        done in 1.82s (load 0.48s)  comm_out=0x075058127f421dd4
+[2/4] t_add_id_data_1850    done in 0.94s (load 0.15s)  comm_out=0x13df2cd4cf19ee5e
 [3/4] t_add_integrity_commit done in 0.55s (load 0.10s)  leaf=0x0314456fbc0a4c24
 [4/4] t_attest               done in 0.24s (load 0.04s)  nullifier=
 
 Pipeline complete in 5.40s
   leaf:              0x0314456fbc0a4c2448713ed1e29f21a93e60118938e6f1dc832d5a43b5def36e
   scoped_nullifier:  0x164cbaa7ed97fc4ab3a364d50f84e88b790528bebcc5220b20b9c6a3cf3d72a7
-  Wrote ../../proofs/t_add_dsc_1300.np (719479 bytes)
-  Wrote ../../proofs/t_add_id_data_1300.np (674414 bytes)
+  Wrote ../../proofs/t_add_dsc_1850.np (719479 bytes)
+  Wrote ../../proofs/t_add_id_data_1850.np (674414 bytes)
   Wrote ../../proofs/t_add_integrity_commit.np (653351 bytes)
   Wrote ../../proofs/t_attest.np (592368 bytes)
 Proofs written to: ../../proofs
@@ -263,19 +275,17 @@ Usage: passport-prover [OPTIONS]
 Required:
   --dg1 <path>            Path to DG1 binary file
   --sod <path>            Path to SOD binary file
-  --pkp_dir <path>        Directory containing .pkp prover files
-
-CSCA key (one required):
-  --csca <path>           Path to CSCA public key (DER-encoded)
-  --csca_registry <path>  Path to CSCA registry JSON (auto-selects by country)
+  --pkp-dir <path>        Directory containing .pkp prover files
 
 Optional:
-  --r_dg1 <hex>           Random blinding factor for DG1 commitment
-  --min_age <int>         Minimum age requirement (default: 18)
-  --max_age <int>         Maximum age requirement (default: 0 = no upper bound)
+  --r-dg1 <hex>           Random blinding factor for DG1 commitment
+  --min-age <int>         Minimum age requirement (default: 18)
+  --max-age <int>         Maximum age requirement (default: 0 = no upper bound)
   --output <dir>          Directory to write .np proof files
   -h, --help              Show this help message
 ```
+
+> **Note:** Run from the repo root so the CSCA registry (`csca_registry/csca_public_key.json`) is found automatically.
 
 ---
 
@@ -285,8 +295,8 @@ All parsers produce the same output when `--output` is specified:
 
 | File | Stage | Description |
 |---|---|---|
-| `t_add_dsc_1300.np` | DSC Verification | Verifies CSCA signature over the Document Signing Certificate |
-| `t_add_id_data_1300.np` | ID Data Verification | Verifies DSC signature over passport signed attributes |
+| `t_add_dsc_1850.np` | DSC Verification | Verifies CSCA signature over the Document Signing Certificate |
+| `t_add_id_data_1850.np` | ID Data Verification | Verifies DSC signature over passport signed attributes |
 | `t_add_integrity_commit.np` | Integrity Commitment | Verifies DG1 hash chain and computes Merkle leaf |
 | `t_attest.np` | Attestation | Proves age requirement and computes scoped nullifier |
 
