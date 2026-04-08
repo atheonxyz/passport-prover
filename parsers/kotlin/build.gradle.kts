@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "2.0.21"
+    alias(libs.plugins.kotlin.jvm)
     application
 }
 
@@ -32,15 +32,15 @@ sourceSets {
 
 dependencies {
     // ASN.1 / CMS / X.509 parsing
-    implementation("org.bouncycastle:bcprov-jdk18on:1.79")
-    implementation("org.bouncycastle:bcpkix-jdk18on:1.79")
+    implementation(libs.bouncycastle.prov)
+    implementation(libs.bouncycastle.pkix)
 
     // JSON (used by Verity SDK's Witness.fromJson and our witness serialization)
-    implementation("org.json:json:20240303")
+    implementation(libs.json)
 
     // Testing
     testImplementation(kotlin("test"))
-    testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
+    testImplementation(libs.junit.jupiter)
 }
 
 kotlin {

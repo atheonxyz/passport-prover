@@ -55,5 +55,5 @@ internal object OidRegistry {
     )
 
     @JvmStatic
-    fun getName(oid: String): String = registry[oid] ?: oid
+    internal fun getName(oid: String): String = registry[oid] ?: oid
 }

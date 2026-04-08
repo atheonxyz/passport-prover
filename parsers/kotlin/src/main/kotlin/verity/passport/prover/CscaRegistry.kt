@@ -2,9 +2,9 @@ package verity.passport.prover
 
 import org.json.JSONObject
 import java.io.File
+import java.security.GeneralSecurityException
 import java.security.KeyFactory
 import java.security.Signature
-import java.security.MessageDigest
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 
@@ -59,7 +59,6 @@ public object CscaRegistry {
 
         // The DSC's TBS certificate bytes and signature from the SOD
         val tbsBytes = sod.certificate.tbs.bytes
-        val tbsDigest = MessageDigest.getInstance("SHA-256").digest(tbsBytes)
         val cscaSignatureBytes = sod.certificate.signature
 
         val errors = mutableListOf<String>()
@@ -80,7 +79,7 @@ public object CscaRegistry {
                 } else {
                     errors.add("serial=${entry.serial}: signature mismatch")
                 }
-            } catch (e: Exception) {
+            } catch (e: GeneralSecurityException) {
                 errors.add("serial=${entry.serial}: ${e.message}")
             }
         }

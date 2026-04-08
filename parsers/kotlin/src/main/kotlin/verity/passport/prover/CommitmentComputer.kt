@@ -135,13 +135,13 @@ public object CommitmentComputer {
         }
         val privateNullifier = Poseidon2.hash(nullFields)
 
-        val scopeFields = mutableListOf(
-            privateNullifier,
-            Poseidon2.hexToField(serviceScope),
-            Poseidon2.hexToField(serviceSubscope),
-        )
-        if (nullifierSecret != Constants.ZERO_FIELD) {
-            scopeFields.add(Poseidon2.hexToField(nullifierSecret))
+        val scopeFields = buildList {
+            add(privateNullifier)
+            add(Poseidon2.hexToField(serviceScope))
+            add(Poseidon2.hexToField(serviceSubscope))
+            if (nullifierSecret != Constants.ZERO_FIELD) {
+                add(Poseidon2.hexToField(nullifierSecret))
+            }
         }
         return Poseidon2.fieldToHex(Poseidon2.hash(scopeFields))
     }

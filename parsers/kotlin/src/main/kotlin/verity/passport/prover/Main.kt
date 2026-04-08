@@ -1,6 +1,7 @@
 package verity.passport.prover
 
 import java.io.File
+import java.time.Instant
 
 private const val DEFAULT_R_DG1 = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 
@@ -39,7 +40,7 @@ public fun main(args: Array<String>) {
     reader.validate()
     val passportData = reader.extract()
 
-    val currentDate = System.currentTimeMillis() / 1000
+    val currentDate = Instant.now().epochSecond
 
     val config = WitnessConfig(
         rDg1 = rDg1,

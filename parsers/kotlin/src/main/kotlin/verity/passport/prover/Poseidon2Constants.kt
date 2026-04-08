@@ -2,7 +2,12 @@ package verity.passport.prover
 
 import java.math.BigInteger
 
-object Poseidon2Constants {
+/**
+ * Precomputed round constants and internal matrix diagonal for the Poseidon2 permutation
+ * over the BN254 scalar field. These constants are generated deterministically and must
+ * match the values used in the corresponding Noir circuit implementation.
+ */
+internal object Poseidon2Constants {
 
     private fun fe(hex: String): BigInteger = BigInteger(hex, 16)
 

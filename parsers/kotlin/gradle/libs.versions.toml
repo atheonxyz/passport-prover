@@ -1,0 +1,14 @@
+[versions]
+kotlin = "2.0.21"
+bouncycastle = "1.79"
+json = "20240303"
+junit = "5.11.3"
+
+[libraries]
+bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+bouncycastle-pkix = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "bouncycastle" }
+json = { module = "org.json:json", version.ref = "json" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
