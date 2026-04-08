@@ -72,9 +72,9 @@ Requires `provekit` cloned at `../../provekit` relative to `parsers/rust/`, or o
 
 ```bash
 cd parsers/rust
-cargo build --release
+cargo build --profile release-mobile
 
-./target/release/passport-prover \
+./target/release-mobile/passport-prover \
   --dg1 <PATH>       \
   --sod <PATH>       \
   --pkp_dir <PATH>   \
@@ -87,7 +87,7 @@ cargo build --release
 ### Example
 
 ```bash
-./target/release/passport-prover \
+./target/release-mobile/passport-prover \
   --dg1 ./data/dg1.bin \
   --sod ./data/sod.bin \
   --pkp_dir ../../pkp/ \
@@ -109,7 +109,7 @@ Requires `verity` cloned at `../../verity` relative to `parsers/kotlin/`, or set
 Build ProveKit FFI first, then the JNI bridge:
 
 ```bash
-cd $PROVEKIT_ROOT && cargo build --release -p provekit-ffi
+cd $PROVEKIT_ROOT && cargo build --profile release-mobile -p provekit-ffi
 cd parsers/kotlin && bash scripts/build-macos-jni.sh
 ```
 
@@ -193,7 +193,7 @@ This runs parsing, validation, and Poseidon2 commitment computation but skips pr
 **Step 1: Build ProveKit FFI**
 
 ```bash
-cd $PROVEKIT_ROOT && cargo build --release -p provekit-ffi
+cd $PROVEKIT_ROOT && cargo build --profile release-mobile -p provekit-ffi
 ```
 
 **Step 2: Build the macOS xcframework**

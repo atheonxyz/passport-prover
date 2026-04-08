@@ -4,7 +4,7 @@ set -euo pipefail
 # Build libverity_jni.dylib for macOS (Apple Silicon) with ProveKit backend.
 #
 # Prerequisites:
-#   1. ProveKit must be built: cd <provekit> && cargo build --release -p provekit-ffi
+#   1. ProveKit must be built: cd <provekit> && cargo build --profile release-mobile -p provekit-ffi
 #   2. JDK with JNI headers (openjdk@17 via Homebrew).
 #
 # Usage:
@@ -40,10 +40,10 @@ if [ ! -f "$JNI_INCLUDE/jni.h" ]; then
 fi
 
 # ProveKit FFI static library
-PK_FFI="$PROVEKIT_ROOT/target/release/libprovekit_ffi.a"
+PK_FFI="$PROVEKIT_ROOT/target/release-mobile/libprovekit_ffi.a"
 if [ ! -f "$PK_FFI" ]; then
     echo "ERROR: ProveKit FFI not found at $PK_FFI"
-    echo "Build it first: cd $PROVEKIT_ROOT && cargo build --release -p provekit-ffi"
+    echo "Build it first: cd $PROVEKIT_ROOT && cargo build --profile release-mobile -p provekit-ffi"
     exit 1
 fi
 
@@ -75,7 +75,7 @@ $CC -c -I"$INCLUDE_DIR" -I"$JNI_INCLUDE" -I"$JNI_INCLUDE_DARWIN" -fPIC \
 
 # Collect ProveKit build deps (blake3, ring, lzma, etc.)
 EXTRA_LIBS=""
-PK_BUILD_DIR="$PROVEKIT_ROOT/target/release/build"
+PK_BUILD_DIR="$PROVEKIT_ROOT/target/release-mobile/build"
 if [ -d "$PK_BUILD_DIR" ]; then
     for lib in $(find "$PK_BUILD_DIR" -name "lib*.a" 2>/dev/null); do
         EXTRA_LIBS="$EXTRA_LIBS $lib"
@@ -95,6 +95,10 @@ $CC -shared -dynamiclib \
     $EXTRA_LIBS \
     -lc++ -framework Security -framework CoreFoundation \
     -Wl,-undefined,dynamic_lookup
+
+# Strip debug symbols to reduce binary size
+echo "Stripping debug symbols..."
+strip -x "$OUTPUT_DIR/libverity_jni.dylib"
 
 echo ""
 echo "=== Done! ==="

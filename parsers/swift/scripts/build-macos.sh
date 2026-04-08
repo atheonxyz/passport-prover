@@ -6,7 +6,7 @@ set -euo pipefail
 #
 # Prerequisites:
 #   1. ProveKit FFI must be built:
-#      cd $PROVEKIT_ROOT && cargo build --release -p provekit-ffi
+#      cd $PROVEKIT_ROOT && cargo build --profile release-mobile -p provekit-ffi
 #
 # Usage:
 #   bash scripts/build-macos.sh
@@ -26,10 +26,10 @@ INCLUDE_DIR="$CORE_DIR/include"
 OUTPUT_DIR="$VERITY_DIR/output"
 
 # ProveKit FFI static library
-PK_FFI="$PROVEKIT_ROOT/target/release/libprovekit_ffi.a"
+PK_FFI="$PROVEKIT_ROOT/target/release-mobile/libprovekit_ffi.a"
 if [ ! -f "$PK_FFI" ]; then
     echo "ERROR: ProveKit FFI not found at $PK_FFI"
-    echo "Build it first: cd $PROVEKIT_ROOT && cargo build --release -p provekit-ffi"
+    echo "Build it first: cd $PROVEKIT_ROOT && cargo build --profile release-mobile -p provekit-ffi"
     exit 1
 fi
 
@@ -63,7 +63,7 @@ pushd "$COMBINED_DIR" > /dev/null
 ar x "$PK_FFI"
 
 # Collect ProveKit build deps (blake3, ring, lzma, etc.)
-PK_BUILD_DIR="$PROVEKIT_ROOT/target/release/build"
+PK_BUILD_DIR="$PROVEKIT_ROOT/target/release-mobile/build"
 if [ -d "$PK_BUILD_DIR" ]; then
     for lib in $(find "$PK_BUILD_DIR" -name "lib*.a" 2>/dev/null); do
         ar x "$lib" 2>/dev/null || true
@@ -77,6 +77,10 @@ ar rcs "$WORK_DIR/libverity.a" \
     "$WORK_DIR/verity_dispatch.o" \
     "$WORK_DIR/pk_backend.o" \
     "$COMBINED_DIR"/*.o
+
+# Strip debug symbols to reduce binary size
+echo "Stripping debug symbols..."
+strip -x "$WORK_DIR/libverity.a"
 
 # Prepare headers
 HEADERS_DIR="$WORK_DIR/headers"
