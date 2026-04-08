@@ -704,6 +704,7 @@ dependencies = [
 [[package]]
 name = "bn254-multiplier"
 version = "0.1.0"
+source = "git+https://github.com/worldfnd/provekit?rev=40a6e70d6dec349dd1b30255780fc80a03797128#40a6e70d6dec349dd1b30255780fc80a03797128"
 dependencies = [
  "bn254-multiplier-codegen",
  "fp-rounding",
@@ -714,6 +715,7 @@ dependencies = [
 [[package]]
 name = "bn254-multiplier-codegen"
 version = "0.1.0"
+source = "git+https://github.com/worldfnd/provekit?rev=40a6e70d6dec349dd1b30255780fc80a03797128#40a6e70d6dec349dd1b30255780fc80a03797128"
 dependencies = [
  "hla",
 ]
@@ -1528,6 +1530,7 @@ dependencies = [
 [[package]]
 name = "fp-rounding"
 version = "0.1.0"
+source = "git+https://github.com/worldfnd/provekit?rev=40a6e70d6dec349dd1b30255780fc80a03797128#40a6e70d6dec349dd1b30255780fc80a03797128"
 
 [[package]]
 name = "funty"
@@ -1756,6 +1759,7 @@ checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
 [[package]]
 name = "hla"
 version = "0.1.0"
+source = "git+https://github.com/worldfnd/provekit?rev=40a6e70d6dec349dd1b30255780fc80a03797128#40a6e70d6dec349dd1b30255780fc80a03797128"
 dependencies = [
  "paste",
 ]
@@ -3062,6 +3066,7 @@ dependencies = [
 [[package]]
 name = "passport-input-gen"
 version = "0.1.0"
+source = "git+https://github.com/worldfnd/provekit?rev=40a6e70d6dec349dd1b30255780fc80a03797128#40a6e70d6dec349dd1b30255780fc80a03797128"
 dependencies = [
  "base64",
  "chrono",
@@ -3097,6 +3102,7 @@ dependencies = [
  "provekit-common",
  "provekit-prover",
  "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -3440,6 +3446,7 @@ checksum = "95067976aca6421a523e491fce939a3e65249bac4b977adee0ee9771568e8aa3"
 [[package]]
 name = "provekit-common"
 version = "0.1.0"
+source = "git+https://github.com/worldfnd/provekit?rev=40a6e70d6dec349dd1b30255780fc80a03797128#40a6e70d6dec349dd1b30255780fc80a03797128"
 dependencies = [
  "acir",
  "anyhow",
@@ -3471,6 +3478,7 @@ dependencies = [
 [[package]]
 name = "provekit-prover"
 version = "0.1.0"
+source = "git+https://github.com/worldfnd/provekit?rev=40a6e70d6dec349dd1b30255780fc80a03797128#40a6e70d6dec349dd1b30255780fc80a03797128"
 dependencies = [
  "acir",
  "anyhow",
@@ -4372,6 +4380,7 @@ dependencies = [
 [[package]]
 name = "skyscraper"
 version = "0.1.0"
+source = "git+https://github.com/worldfnd/provekit?rev=40a6e70d6dec349dd1b30255780fc80a03797128#40a6e70d6dec349dd1b30255780fc80a03797128"
 dependencies = [
  "ark-bn254",
  "ark-ff 0.5.0",
