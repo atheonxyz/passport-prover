@@ -1,10 +1,17 @@
 import Foundation
 import BigInt
 
-public enum Poseidon2Constants {
+/// Round constants and internal matrix diagonal for Poseidon2 over BN254.
+public enum Poseidon2Constants: Sendable {
 
+    /// Parse a hex string to a field element, trapping on invalid input.
+    /// Safe here because these are compile-time constants - invalid values are developer errors.
+    @inline(__always)
     private static func fe(_ hex: String) -> BigUInt {
-        BigUInt(hex, radix: 16)!
+        guard let value = BigUInt(hex, radix: 16) else {
+            preconditionFailure("Invalid Poseidon2 constant: \(hex)")
+        }
+        return value
     }
 
     public static let internalMatrixDiagonal: [BigUInt] = [

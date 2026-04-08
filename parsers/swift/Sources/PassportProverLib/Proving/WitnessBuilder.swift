@@ -116,6 +116,6 @@ public enum WitnessBuilder {
 
 /// Unsigned right shift for Int32 (equivalent to Java's `>>>`).
 infix operator >>>: BitwiseShiftPrecedence
-func >>> (lhs: Int32, rhs: Int) -> Int32 {
+fileprivate func >>> (lhs: Int32, rhs: Int) -> Int32 {
     Int32(bitPattern: UInt32(bitPattern: lhs) >> rhs)
 }

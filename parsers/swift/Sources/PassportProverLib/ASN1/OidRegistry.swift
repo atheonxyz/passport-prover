@@ -1,6 +1,7 @@
 import Foundation
 
-public enum OidRegistry {
+/// Maps well-known OIDs to human-readable names.
+public enum OidRegistry: Sendable {
 
     private static let registry: [String: String] = [
         // PKCS#9 signed attributes
