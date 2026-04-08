@@ -1,87 +1,10 @@
 import Foundation
 import BigInt
 
-public struct WitnessConfig {
-    public let salt1: String
-    public let salt2: String
-    public let rDg1: String
-    public let currentDate: Int64
-    public let minAgeRequired: Int
-    public let maxAgeRequired: Int
-    public let serviceScope: String
-    public let serviceSubscope: String
-    public let nullifierSecret: String
-    public let merkleRoot: String
-    public let leafIndex: String
-    public let merklePath: [String]
-
-    public init(
-        salt1: String = "0x2",
-        salt2: String = "0x3",
-        rDg1: String = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-        currentDate: Int64 = 1735689600,
-        minAgeRequired: Int = 18,
-        maxAgeRequired: Int = 0,
-        serviceScope: String = Constants.zeroField,
-        serviceSubscope: String = Constants.zeroField,
-        nullifierSecret: String = Constants.zeroField,
-        merkleRoot: String = Constants.zeroField,
-        leafIndex: String = "0",
-        merklePath: [String] = Array(repeating: Constants.zeroField, count: Constants.treeDepth)
-    ) {
-        self.salt1 = salt1
-        self.salt2 = salt2
-        self.rDg1 = rDg1
-        self.currentDate = currentDate
-        self.minAgeRequired = minAgeRequired
-        self.maxAgeRequired = maxAgeRequired
-        self.serviceScope = serviceScope
-        self.serviceSubscope = serviceSubscope
-        self.nullifierSecret = nullifierSecret
-        self.merkleRoot = merkleRoot
-        self.leafIndex = leafIndex
-        self.merklePath = merklePath
-    }
-}
-
+/// Poseidon2-based commitment helpers and partial SHA-256 for circuit witness building.
 public enum WitnessBuilder {
 
-    // MARK: - Serialization
-
-    public static func toJson(_ witness: [String: Any]) -> String {
-        serializeJsonObject(witness, indent: 0)
-    }
-
-    private static func serializeJsonObject(_ obj: [String: Any], indent: Int) -> String {
-        let pad = String(repeating: "  ", count: indent + 1)
-        let closePad = String(repeating: "  ", count: indent)
-        var sb = "{\n"
-        let entries = Array(obj)
-        for (i, (key, value)) in entries.enumerated() {
-            let comma = i < entries.count - 1 ? "," : ""
-            switch value {
-            case let nested as [String: Any]:
-                let nestedStr = serializeJsonObject(nested, indent: indent + 1)
-                sb += "\(pad)\"\(key)\": \(nestedStr)\(comma)\n"
-            case let list as [Any]:
-                sb += "\(pad)\"\(key)\": [\(list.map { "\"\($0)\"" }.joined(separator: ", "))]\(comma)\n"
-            case let s as String:
-                sb += "\(pad)\"\(key)\": \"\(s)\"\(comma)\n"
-            case let n as Int64:
-                sb += "\(pad)\"\(key)\": \"\(n)\"\(comma)\n"
-            case let n as Int:
-                sb += "\(pad)\"\(key)\": \"\(n)\"\(comma)\n"
-            case let n as UInt64:
-                sb += "\(pad)\"\(key)\": \"\(n)\"\(comma)\n"
-            default:
-                sb += "\(pad)\"\(key)\": \"\(value)\"\(comma)\n"
-            }
-        }
-        sb += "\(closePad)}"
-        return sb
-    }
-
-    // MARK: - Poseidon2 commitment helpers
+    // MARK: - Poseidon2 Commitments
 
     public static func computePrivateNullifier(dg1: Data, econtent: Data, sodSignature: Data) -> String {
         var fields: [BigUInt] = []
@@ -123,6 +46,8 @@ public enum WitnessBuilder {
 
     // MARK: - Partial SHA-256
 
+    /// Process 64-byte blocks through SHA-256 compression without finalization.
+    /// Used for circuit-compatible partial hash computation.
     public static func partialSha256(chunk: Data) -> [Int32] {
         precondition(chunk.count % 64 == 0, "Chunk must be multiple of 64 bytes, got \(chunk.count)")
 
@@ -187,23 +112,10 @@ public enum WitnessBuilder {
     ]
 }
 
-// MARK: - Data helpers
+// MARK: - Unsigned Right Shift
 
-extension Data {
-    func toIntList() -> [Int] {
-        map { Int($0) }
-    }
-}
-
-/// Unsigned right shift for Int32 (like Java's >>>)
+/// Unsigned right shift for Int32 (equivalent to Java's `>>>`).
 infix operator >>>: BitwiseShiftPrecedence
 func >>> (lhs: Int32, rhs: Int) -> Int32 {
     Int32(bitPattern: UInt32(bitPattern: lhs) >> rhs)
-}
-
-func padToSize(_ data: Data, targetSize: Int) -> Data {
-    if data.count >= targetSize { return data }
-    var padded = Data(count: targetSize)
-    padded.replaceSubrange(0 ..< data.count, with: data)
-    return padded
 }

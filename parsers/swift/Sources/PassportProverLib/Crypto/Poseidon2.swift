@@ -1,8 +1,7 @@
 import Foundation
 import BigInt
 
-/// Poseidon2 sponge hash over BN254 scalar field.
-/// Ported directly from the Kotlin implementation.
+/// Poseidon2 sponge hash over the BN254 scalar field.
 public enum Poseidon2 {
 
     public static let P = BigUInt("21888242871839275222246405745257275088548364400416034343698204186575808495617")
@@ -11,18 +10,25 @@ public enum Poseidon2 {
     private static let RATE = 3
     private static let TWO_POW_64 = BigUInt(1) << 64
 
+    // MARK: - Field Arithmetic
+
+    @inline(__always)
     private static func add(_ a: BigUInt, _ b: BigUInt) -> BigUInt {
         (a + b) % P
     }
 
+    @inline(__always)
     private static func mul(_ a: BigUInt, _ b: BigUInt) -> BigUInt {
         (a * b) % P
     }
 
+    @inline(__always)
     private static func sBox(_ x: BigUInt) -> BigUInt {
         let s = mul(x, x)
         return mul(mul(s, s), x)
     }
+
+    // MARK: - Matrix Operations
 
     private static func matMul4x4(_ state: inout [BigUInt]) {
         let t0 = add(state[0], state[1])
@@ -52,6 +58,8 @@ public enum Poseidon2 {
             state[i] = add(mul(state[i], diag[i]), sum)
         }
     }
+
+    // MARK: - Permutation & Hash
 
     public static func permutation(_ inputs: [BigUInt]) -> [BigUInt] {
         let rfFirst = 4
@@ -87,7 +95,7 @@ public enum Poseidon2 {
     }
 
     public static func hash(_ inputs: [BigUInt]) -> BigUInt {
-        let iv = mul(BigUInt(inputs.count) , TWO_POW_64)
+        let iv = mul(BigUInt(inputs.count), TWO_POW_64)
 
         var state: [BigUInt] = [ZERO, ZERO, ZERO, iv]
         var cache: [BigUInt] = [ZERO, ZERO, ZERO]
@@ -105,14 +113,17 @@ public enum Poseidon2 {
         }
 
         for i in 0 ..< cacheSize { state[i] = add(state[i], cache[i]) }
-        let result = permutation(state)
-
-        return result[0]
+        return permutation(state)[0]
     }
+
+    // MARK: - Hex / Field Conversions
 
     public static func hexToField(_ hex: String) -> BigUInt {
         let s = hex.hasPrefix("0x") ? String(hex.dropFirst(2)) : hex
-        return BigUInt(s, radix: 16)! % P
+        guard let value = BigUInt(s, radix: 16) else {
+            preconditionFailure("Invalid hex string for field element: \(hex)")
+        }
+        return value % P
     }
 
     public static func fieldToHex(_ fe: BigUInt) -> String {
@@ -120,6 +131,8 @@ public enum Poseidon2 {
         let hex = String(reduced, radix: 16)
         return "0x" + String(repeating: "0", count: max(0, 64 - hex.count)) + hex
     }
+
+    // MARK: - Byte Packing
 
     public static func packBytesIntoFields(_ bytes: Data, bytesPerField: Int = 31) -> [BigUInt] {
         let numFields = (bytes.count + bytesPerField - 1) / bytesPerField
@@ -146,5 +159,4 @@ public enum Poseidon2 {
 
         return fields.reversed()
     }
-
 }

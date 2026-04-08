@@ -1,4 +1,5 @@
 {
+  "originHash" : "31d8e0de8744e3b6757f8b65fd531fc1942a4248f48846bcbef3c97d92e998c5",
   "pins" : [
     {
       "identity" : "bigint",
@@ -8,7 +9,16 @@
         "revision" : "e07e00fa1fd435143a2dcf8b7eec9a7710b2fdfe",
         "version" : "5.7.0"
       }
+    },
+    {
+      "identity" : "verity",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/atheonxyz/verity.git",
+      "state" : {
+        "revision" : "ab9aeb61e57dc7d886850144afae7e7ba02c6cc2",
+        "version" : "0.4.0"
+      }
     }
   ],
-  "version" : 2
+  "version" : 3
 }

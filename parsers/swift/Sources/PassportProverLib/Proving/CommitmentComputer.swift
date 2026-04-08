@@ -2,10 +2,10 @@ import Foundation
 import BigInt
 
 /// Computes Poseidon2 commitment values natively, matching the Noir circuits.
-/// These are used to chain stages together (comm_out from stage N = comm_in for stage N+1).
+/// These chain stages together: comm_out from stage N = comm_in for stage N+1.
 public enum CommitmentComputer {
 
-    /// Stage 1 commitment: hash_salt_country_tbs(salt, country, tbs_certificate)
+    /// Stage 1: hash(salt, country, tbs_certificate)
     public static func computeStage1CommOut(
         salt: String,
         country: String,
@@ -18,7 +18,7 @@ public enum CommitmentComputer {
         return Poseidon2.fieldToHex(Poseidon2.hash(fields))
     }
 
-    /// Stage 2 commitment
+    /// Stage 2: hash(salt, country, signed_attrs, size, dg1, econtent, nullifier)
     public static func computeStage2CommOut(
         saltOut: String,
         country: String,
@@ -54,7 +54,7 @@ public enum CommitmentComputer {
         return Poseidon2.fieldToHex(Poseidon2.hash([hDg1, sodHash]))
     }
 
-    /// Stage 4 scoped_nullifier
+    /// Stage 4: scoped nullifier for service-specific unlinkability.
     public static func computeScopedNullifier(
         dg1: Data,
         econtent: Data,

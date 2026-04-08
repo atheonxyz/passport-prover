@@ -1,6 +1,6 @@
 import Foundation
 
-public enum PassportError: LocalizedError {
+public enum PassportError: LocalizedError, Sendable, Equatable {
     case dg1HashMismatch
     case econtentHashMismatch
     case invalidDscKey

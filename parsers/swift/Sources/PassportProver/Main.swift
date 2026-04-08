@@ -52,8 +52,7 @@ struct PassportProverCLI {
         print("Extracting circuit inputs...")
         let passportData = try reader.extract()
 
-        let country = passportData.country
-        print("Country: \(country)")
+        print("Country: \(passportData.country)")
 
         let currentDate = Int64(Date().timeIntervalSince1970)
 
@@ -64,37 +63,45 @@ struct PassportProverCLI {
             maxAgeRequired: maxAge
         )
 
-        // Run the proving pipeline
         let result = try Pipeline.run(
             pkpDir: pkpDir,
             data: passportData,
             config: config
         )
 
-        // Write proof files if output directory specified and proofs were generated
+        // Write proof files if output directory specified
         if let outputDir = outputDir {
-            let fm = FileManager.default
-            try fm.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
+            let outputURL = URL(fileURLWithPath: outputDir)
+            try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
 
-            try writeProof(dir: outputDir, name: "t_add_dsc_1300.np", data: result.proofStage1)
-            try writeProof(dir: outputDir, name: "t_add_id_data_1300.np", data: result.proofStage2)
-            try writeProof(dir: outputDir, name: "t_add_integrity_commit.np", data: result.proofStage3)
-            try writeProof(dir: outputDir, name: "t_attest.np", data: result.proofStage4)
+            let proofFiles: [(String, Data)] = [
+                ("t_add_dsc_1300.np", result.proofStage1),
+                ("t_add_id_data_1300.np", result.proofStage2),
+                ("t_add_integrity_commit.np", result.proofStage3),
+                ("t_attest.np", result.proofStage4),
+            ]
+
+            for (name, proofData) in proofFiles {
+                let fileURL = outputURL.appendingPathComponent(name)
+                try proofData.write(to: fileURL)
+                print("  Wrote \(fileURL.path) (\(proofData.count) bytes)")
+            }
 
             print("Proofs written to: \(outputDir)")
         }
 
-        // Print the leaf to stdout for piping
         print(result.leaf)
     }
 }
+
+// MARK: - CLI Argument Parsing
 
 private func parseArgs(_ args: [String]) -> [String: String] {
     var map: [String: String] = [:]
     var i = 1
     while i < args.count {
         let key = args[i]
-        if key.hasPrefix("--") && i + 1 < args.count {
+        if key.hasPrefix("--"), i + 1 < args.count {
             map[key] = args[i + 1]
             i += 2
         } else if key == "-h" || key == "--help" {
@@ -136,10 +143,4 @@ private func printUsage() {
       -h, --help              Show this help message
 
     """, stderr)
-}
-
-private func writeProof(dir: String, name: String, data: Data) throws {
-    let path = (dir as NSString).appendingPathComponent(name)
-    try data.write(to: URL(fileURLWithPath: path))
-    print("  Wrote \(path) (\(data.count) bytes)")
 }

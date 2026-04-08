@@ -1,16 +1,24 @@
 import Foundation
 
-/// Minimal DER/ASN.1 parser for CMS SignedData and X.509 certificates.
-public struct ASN1Node {
+// MARK: - ASN.1 Node
+
+public struct ASN1Node: Sendable, Equatable {
     public let tag: UInt8
     public let data: Data
     public let headerLength: Int
     public let totalLength: Int
 
-    /// The full TLV (tag + length + value) encoding of this node.
-    public var fullData: Data {
-        let start = data.startIndex - headerLength
-        return Data(data[start ..< data.startIndex]) + data
+    @inlinable
+    public init(tag: UInt8, data: Data, headerLength: Int, totalLength: Int) {
+        self.tag = tag
+        self.data = data
+        self.headerLength = headerLength
+        self.totalLength = totalLength
+    }
+
+    /// The raw TLV encoding of this node (re-encoded from tag + content).
+    public var rawTLV: Data {
+        ASN1.encodedBytes(tag: tag, content: data)
     }
 
     public var isConstructed: Bool { tag & 0x20 != 0 }
@@ -18,9 +26,12 @@ public struct ASN1Node {
     public var tagNumber: UInt8 { tag & 0x1F }
 }
 
+// MARK: - ASN.1 Parser
+
 public enum ASN1 {
 
-    // MARK: - Tag constants
+    // MARK: Tag Constants
+
     public static let tagInteger: UInt8 = 0x02
     public static let tagBitString: UInt8 = 0x03
     public static let tagOctetString: UInt8 = 0x04
@@ -34,10 +45,10 @@ public enum ASN1 {
     public static let tagSequence: UInt8 = 0x30
     public static let tagSet: UInt8 = 0x31
 
-    // MARK: - Parse TLV
+    // MARK: Parse TLV
 
     /// Parse one ASN.1 TLV at the given offset.
-    /// Returns the parsed node and the offset just past this TLV.
+    @inlinable
     public static func parse(_ data: Data, at offset: Int = 0) throws -> (ASN1Node, Int) {
         guard offset < data.count else {
             throw PassportError.asn1DecodingFailed("Unexpected end of data at offset \(offset)")
@@ -64,6 +75,7 @@ public enum ASN1 {
     }
 
     /// Parse all children of a constructed node.
+    @inlinable
     public static func parseSequence(_ data: Data) throws -> [ASN1Node] {
         var children: [ASN1Node] = []
         var offset = 0
@@ -76,6 +88,7 @@ public enum ASN1 {
     }
 
     /// Parse DER length encoding.
+    @usableFromInline
     static func parseLength(_ data: Data, at offset: Int) throws -> (Int, Int) {
         let base = data.startIndex + offset
         guard base < data.endIndex else {
@@ -88,7 +101,7 @@ public enum ASN1 {
         }
 
         let numBytes = Int(first & 0x7F)
-        guard numBytes > 0 && numBytes <= 4 else {
+        guard numBytes > 0, numBytes <= 4 else {
             throw PassportError.asn1DecodingFailed("Unsupported length encoding: \(numBytes) bytes")
         }
         guard base + numBytes < data.endIndex else {
@@ -102,9 +115,9 @@ public enum ASN1 {
         return (length, 1 + numBytes)
     }
 
-    // MARK: - Value extraction
+    // MARK: Value Extraction
 
-    /// Parse an OID from its DER content bytes.
+    /// Parse an OID from its DER content bytes into dotted-decimal notation.
     public static func parseOID(_ data: Data) -> String {
         guard !data.isEmpty else { return "" }
 
@@ -123,10 +136,10 @@ public enum ASN1 {
             }
         }
 
-        return components.map { String($0) }.joined(separator: ".")
+        return components.map(String.init).joined(separator: ".")
     }
 
-    /// Extract an integer value from an ASN.1 INTEGER node's content bytes.
+    @inlinable
     public static func parseIntValue(_ data: Data) -> Int {
         var result = 0
         for byte in data {
@@ -135,15 +148,14 @@ public enum ASN1 {
         return result
     }
 
-    /// Extract big-endian unsigned bytes from an ASN.1 INTEGER, stripping leading zero.
+    @inlinable
     public static func parseIntegerBytes(_ data: Data) -> Data {
-        if data.count > 1 && data[data.startIndex] == 0x00 {
+        if data.count > 1, data[data.startIndex] == 0x00 {
             return Data(data[(data.startIndex + 1)...])
         }
         return data
     }
 
-    /// Parse a string value (UTF8, PrintableString, IA5String, etc.)
     public static func parseString(_ node: ASN1Node) -> String {
         switch node.tag {
         case tagUTF8String, tagPrintableString, tagIA5String:
@@ -153,7 +165,6 @@ public enum ASN1 {
         }
     }
 
-    /// Parse UTCTime or GeneralizedTime to Date.
     public static func parseTime(_ node: ASN1Node) -> Date? {
         guard let str = String(data: node.data, encoding: .ascii) else { return nil }
 
@@ -161,17 +172,19 @@ public enum ASN1 {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(identifier: "UTC")
 
-        if node.tag == tagUTCTime {
+        switch node.tag {
+        case tagUTCTime:
             formatter.dateFormat = "yyMMddHHmmss'Z'"
-            return formatter.date(from: str)
-        } else if node.tag == tagGeneralizedTime {
+        case tagGeneralizedTime:
             formatter.dateFormat = "yyyyMMddHHmmss'Z'"
-            return formatter.date(from: str)
+        default:
+            return nil
         }
-        return nil
+        return formatter.date(from: str)
     }
 
-    /// Get the raw DER encoding of a node including its tag and length.
+    // MARK: DER Encoding
+
     public static func encodedBytes(tag: UInt8, content: Data) -> Data {
         var result = Data([tag])
         result.append(encodeLength(content.count))
@@ -179,7 +192,6 @@ public enum ASN1 {
         return result
     }
 
-    /// Re-encode a SET as DER (tag 0x31) from its inner content.
     public static func reencodeAsSet(_ content: Data) -> Data {
         encodedBytes(tag: tagSet, content: content)
     }
@@ -199,32 +211,10 @@ public enum ASN1 {
         return result
     }
 
-    // MARK: - Context-tagged helpers
+    // MARK: Context-Tagged Helpers
 
-    /// Check if a node is context-tagged with [n] (explicit).
+    @inlinable
     public static func isContextTag(_ node: ASN1Node, number: UInt8) -> Bool {
         node.tag == (0xA0 | number)
-    }
-}
-
-// MARK: - Data hex extension
-
-extension Data {
-    public var hexString: String {
-        map { String(format: "%02x", $0) }.joined()
-    }
-
-    public init?(hexString: String) {
-        let hex = hexString.hasPrefix("0x") ? String(hexString.dropFirst(2)) : hexString
-        guard hex.count % 2 == 0 else { return nil }
-        var data = Data(capacity: hex.count / 2)
-        var index = hex.startIndex
-        while index < hex.endIndex {
-            let nextIndex = hex.index(index, offsetBy: 2)
-            guard let byte = UInt8(hex[index ..< nextIndex], radix: 16) else { return nil }
-            data.append(byte)
-            index = nextIndex
-        }
-        self = data
     }
 }

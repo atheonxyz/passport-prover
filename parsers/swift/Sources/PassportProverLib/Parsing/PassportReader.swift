@@ -1,8 +1,8 @@
 import Foundation
 import BigInt
-import CommonCrypto
+import CryptoKit
 
-public struct PassportReader {
+public struct PassportReader: Sendable {
     private let dg1: Data
     private let sod: SOD
     private let cscaPublicKey: Data?
@@ -13,16 +13,18 @@ public struct PassportReader {
         self.cscaPublicKey = cscaPublicKey
     }
 
+    // MARK: - Public API
+
     public func extract() throws -> PassportData {
-        let dg1Padded = try Self.fitBytes(dg1, size: Constants.maxDg1Size, label: "DG1")
+        let dg1Padded = try dg1.paddedToSize(Constants.maxDg1Size, label: "DG1")
 
         let (signedAttrs, signedAttrsSize) = try extractSignedAttrs()
         let (econtent, econtentLen, econtentRaw) = try extractEcontent()
         let (dscModulus, dscExponent, dscBarrett, sodSignature) = try extractDsc()
         let (cscaModulus, cscaExponent, cscaBarrett, cscaSignature) = try extractCsca()
 
-        let dg1Hash = sha256(dg1)
-        let dg1HashOffset = try Self.findOffset(haystack: econtentRaw, needle: dg1Hash, label: "DG1 hash in eContent")
+        let dg1Hash = Self.sha256(dg1)
+        let dg1HashOffset = try Self.findOffset(in: econtentRaw, of: dg1Hash, label: "DG1 hash in eContent")
 
         let country = extractCountry()
 
@@ -56,7 +58,7 @@ public struct PassportReader {
     }
 
     public func validate() throws {
-        let dg1Hash = sha256(dg1)
+        let dg1Hash = Self.sha256(dg1)
         guard let dg1FromEcontent = sod.encapContentInfo.dataGroupHashValues.values[1] else {
             throw PassportError.missingDg1Hash
         }
@@ -65,10 +67,10 @@ public struct PassportReader {
             throw PassportError.dg1HashMismatch
         }
 
-        let econtentHash = sha256(sod.encapContentInfo.bytes)
+        let econtentHash = Self.sha256(sod.encapContentInfo.bytes)
         var msgDigest = sod.signerInfo.signedAttrs.messageDigest
         // Strip OCTET STRING wrapper if present
-        if msgDigest.count > 2 && msgDigest[msgDigest.startIndex] == 0x04 {
+        if msgDigest.count > 2, msgDigest[msgDigest.startIndex] == 0x04 {
             msgDigest = Data(msgDigest.dropFirst(2))
         }
         if econtentHash != msgDigest {
@@ -76,17 +78,17 @@ public struct PassportReader {
         }
     }
 
-    // MARK: - Private extraction methods
+    // MARK: - Private Extraction
 
     private func extractSignedAttrs() throws -> (Data, Int) {
         let raw = sod.signerInfo.signedAttrs.bytes
-        let padded = try Self.fitBytes(raw, size: Constants.maxSignedAttributesSize, label: "SignedAttributes")
+        let padded = try raw.paddedToSize(Constants.maxSignedAttributesSize, label: "SignedAttributes")
         return (padded, raw.count)
     }
 
     private func extractEcontent() throws -> (Data, Int, Data) {
         let raw = sod.encapContentInfo.bytes
-        let padded = try Self.fitBytes(raw, size: Constants.maxEcontentSize, label: "eContent")
+        let padded = try raw.paddedToSize(Constants.maxEcontentSize, label: "eContent")
         return (padded, raw.count, raw)
     }
 
@@ -96,7 +98,7 @@ public struct PassportReader {
 
         let modulusData = try Self.bigIntToFixedBytes(modulus, size: Constants.sigBytes, label: "DSC modulus")
         let barrett = try BarrettReduction.computeFixed(modulus: modulusData, size: Constants.sigBytes + 1)
-        let signature = try Self.fitBytes(sod.signerInfo.signature, size: Constants.sigBytes, label: "SOD signature")
+        let signature = try sod.signerInfo.signature.paddedToSize(Constants.sigBytes, label: "SOD signature")
 
         return (modulusData, exponent, barrett, signature)
     }
@@ -111,27 +113,25 @@ public struct PassportReader {
         let (modulus, exponent) = try parseRSAPublicKeyFromSPKI(cscaKey)
         let modulusData = try Self.bigIntToFixedBytes(modulus, size: cscaSize, label: "CSCA modulus")
         let barrett = try BarrettReduction.computeFixed(modulus: modulusData, size: cscaSize + 1)
-        let signature = try Self.fitBytes(sod.certificate.signature, size: cscaSize, label: "CSCA signature")
+        let signature = try sod.certificate.signature.paddedToSize(cscaSize, label: "CSCA signature")
 
         return (modulusData, exponent, barrett, signature)
     }
 
     private func extractCountry() -> String {
-        if dg1.count >= 10 {
-            let countryBytes = dg1[dg1.startIndex + 7 ..< dg1.startIndex + 10]
-            return String(data: countryBytes, encoding: .ascii) ?? "<<<"
-        }
-        return "<<<"
+        guard dg1.count >= 10 else { return "<<<" }
+        let countryBytes = dg1[dg1.startIndex + 7 ..< dg1.startIndex + 10]
+        return String(data: countryBytes, encoding: .ascii) ?? "<<<"
     }
 
     private func extractDscCert(dscModulus: Data, targetSize: Int) throws -> (Data, Int, Int) {
         let tbsBytes = sod.certificate.tbs.bytes
-        let padded = try Self.fitBytes(tbsBytes, size: targetSize, label: "TBS certificate")
-        let pubkeyOffset = try Self.findOffset(haystack: tbsBytes, needle: dscModulus, label: "DSC modulus in TBS")
+        let padded = try tbsBytes.paddedToSize(targetSize, label: "TBS certificate")
+        let pubkeyOffset = try Self.findOffset(in: tbsBytes, of: dscModulus, label: "DSC modulus in TBS")
         return (padded, tbsBytes.count, pubkeyOffset)
     }
 
-    // MARK: - RSA key parsing
+    // MARK: - RSA Key Parsing
 
     /// Parse RSA public key from raw PKCS#1 RSAPublicKey DER bytes.
     private func parseRSAPublicKey(_ data: Data) throws -> (BigUInt, UInt64) {
@@ -151,38 +151,23 @@ public struct PassportReader {
         do {
             let (outerNode, _) = try ASN1.parse(data)
             let children = try ASN1.parseSequence(outerNode.data)
-            if children.count >= 2 && children[0].tag == ASN1.tagSequence && children[1].tag == ASN1.tagBitString {
-                // SPKI format - extract inner RSA public key from BIT STRING
+            if children.count >= 2, children[0].tag == ASN1.tagSequence, children[1].tag == ASN1.tagBitString {
                 let innerKeyData = DscParser.extractBitStringContent(children[1])
                 return try parseRSAPublicKey(innerKeyData)
             }
         } catch {
             // Fall through to try raw format
         }
-        // Try raw PKCS#1 RSAPublicKey format
         return try parseRSAPublicKey(data)
     }
 
-    // MARK: - Utility methods
+    // MARK: - Byte Search
 
-    public static func fitBytes(_ data: Data, size: Int, label: String) throws -> Data {
-        if data.count > size {
-            throw PassportError.bufferOverflow("\(label): \(data.count) bytes exceeds buffer \(size)")
+    public static func findOffset(in haystack: Data, of needle: Data, label: String) throws -> Int {
+        guard let range = haystack.range(of: needle) else {
+            throw PassportError.dataNotFound(label)
         }
-        var result = Data(count: size)
-        result.replaceSubrange(0 ..< data.count, with: data)
-        return result
-    }
-
-    public static func bigIntToFixedBytes(_ value: BigUInt, size: Int, label: String) throws -> Data {
-        let bytes = Data(value.serialize())
-        if bytes.count > size {
-            throw PassportError.bufferOverflow("\(label): \(bytes.count) bytes exceeds \(size)")
-        }
-        var result = Data(count: size)
-        let offset = size - bytes.count
-        result.replaceSubrange(offset ..< offset + bytes.count, with: bytes)
-        return result
+        return haystack.distance(from: haystack.startIndex, to: range.lowerBound)
     }
 
     public static func findExponentOffset(tbs: Data, exponent: Int, tbsLen: Int) throws -> Int {
@@ -194,41 +179,25 @@ public struct PassportReader {
         ]
         let start = expBE.firstIndex(where: { $0 != 0 }) ?? 3
         let minimal = Data(expBE[start...])
-        return try findOffset(haystack: Data(tbs.prefix(tbsLen)), needle: minimal, label: "DSC exponent in TBS")
+        return try findOffset(in: Data(tbs.prefix(tbsLen)), of: minimal, label: "DSC exponent in TBS")
     }
 
-    public static func findOffset(haystack: Data, needle: Data, label: String) throws -> Int {
-        let haystackBytes = [UInt8](haystack)
-        let needleBytes = [UInt8](needle)
-        guard needleBytes.count <= haystackBytes.count else {
-            throw PassportError.dataNotFound(label)
+    // MARK: - Utilities
+
+    public static func bigIntToFixedBytes(_ value: BigUInt, size: Int, label: String) throws -> Data {
+        let bytes = Data(value.serialize())
+        guard bytes.count <= size else {
+            throw PassportError.bufferOverflow("\(label): \(bytes.count) bytes exceeds \(size)")
         }
-        for i in 0 ... (haystackBytes.count - needleBytes.count) {
-            var found = true
-            for j in 0 ..< needleBytes.count {
-                if haystackBytes[i + j] != needleBytes[j] {
-                    found = false
-                    break
-                }
-            }
-            if found { return i }
-        }
-        throw PassportError.dataNotFound(label)
+        var result = Data(count: size)
+        let offset = size - bytes.count
+        result.replaceSubrange(offset ..< offset + bytes.count, with: bytes)
+        return result
     }
 
     // MARK: - SHA-256
 
-    private func sha256(_ data: Data) -> Data {
-        Self.sha256(data)
-    }
-
     public static func sha256(_ data: Data) -> Data {
-        var hash = Data(count: Int(CC_SHA256_DIGEST_LENGTH))
-        data.withUnsafeBytes { dataPtr in
-            hash.withUnsafeMutableBytes { hashPtr in
-                _ = CC_SHA256(dataPtr.baseAddress, CC_LONG(data.count), hashPtr.bindMemory(to: UInt8.self).baseAddress)
-            }
-        }
-        return hash
+        Data(SHA256.hash(data: data))
     }
 }
