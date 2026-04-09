@@ -3092,7 +3092,6 @@ dependencies = [
  "acir",
  "anyhow",
  "ark-ff 0.5.0",
- "blake3",
  "bn254_blackbox_solver",
  "chrono",
  "clap",

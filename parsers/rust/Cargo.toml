@@ -15,31 +15,26 @@ path = "src/main.rs"
 [dependencies]
 # ProveKit
 passport-input-gen = { git = "https://github.com/worldfnd/provekit", rev = "40a6e70d6dec349dd1b30255780fc80a03797128" }
-provekit-common    = { git = "https://github.com/worldfnd/provekit", rev = "40a6e70d6dec349dd1b30255780fc80a03797128" }
-provekit-prover    = { git = "https://github.com/worldfnd/provekit", rev = "40a6e70d6dec349dd1b30255780fc80a03797128" }
+provekit-common = { git = "https://github.com/worldfnd/provekit", rev = "40a6e70d6dec349dd1b30255780fc80a03797128" }
+provekit-prover = { git = "https://github.com/worldfnd/provekit", rev = "40a6e70d6dec349dd1b30255780fc80a03797128" }
 
 # Noir
-acir                  = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
+acir = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
 bn254_blackbox_solver = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
-noirc_abi             = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
+noirc_abi = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
 
 # Crates.io
-anyhow     = "1"
-ark-ff     = "0.5"
-blake3     = "=1.8.3" # pinned: 1.8.4 breaks whir's digest traits
-chrono     = "0.4"
-clap       = { version = "4", features = ["derive"], default-features = false }
-hex        = "0.4"
+anyhow = "1"
+ark-ff = "0.5"
+chrono = "0.4"
+clap = { version = "4", features = ["derive"], default-features = false }
+hex = "0.4"
 serde_json = "1"
-thiserror  = "2"
+thiserror = "2"
 
 [profile.release]
 opt-level = 3
 codegen-units = 1
 lto = "fat"
-
-[profile.release-mobile]
-inherits = "release"
-opt-level = "z"
 strip = true
 panic = "abort"

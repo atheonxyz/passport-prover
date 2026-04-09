@@ -3,7 +3,7 @@ use clap::Parser;
 use passport_input_gen::{Binary, PassportReader, SOD};
 use passport_prover::{pipeline, FieldHex};
 use provekit_common::file;
-use std::{fs, path::PathBuf};
+use std::{env, fs, path::PathBuf};
 
 #[derive(Parser)]
 #[command(name = "passport-prover")]
@@ -20,6 +20,10 @@ struct Cli {
     /// Directory containing pre-compiled .pkp prover files
     #[arg(long)]
     pkp_dir: PathBuf,
+
+    /// Path to csca_registry/csca_public_key.json
+    #[arg(long)]
+    csca_json: PathBuf,
 
     /// Blinding factor for DG1 Poseidon commitment (0x-prefixed hex)
     #[arg(long, default_value = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")]
@@ -41,10 +45,31 @@ struct Cli {
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let dg1_bytes = fs::read(&cli.dg1)
-        .with_context(|| format!("Failed to read DG1 file: {}", cli.dg1.display()))?;
-    let sod_bytes = fs::read(&cli.sod)
-        .with_context(|| format!("Failed to read SOD file: {}", cli.sod.display()))?;
+    // Resolve all paths before chdir
+    let dg1_path = fs::canonicalize(&cli.dg1)
+        .with_context(|| format!("DG1 file not found: {}", cli.dg1.display()))?;
+    let sod_path = fs::canonicalize(&cli.sod)
+        .with_context(|| format!("SOD file not found: {}", cli.sod.display()))?;
+    let pkp_dir = fs::canonicalize(&cli.pkp_dir)
+        .with_context(|| format!("PKP directory not found: {}", cli.pkp_dir.display()))?;
+    let output = cli.output.as_ref().map(|p| {
+        fs::create_dir_all(p).ok();
+        fs::canonicalize(p).unwrap_or_else(|_| p.clone())
+    });
+
+    // passport-input-gen loads csca_registry/csca_public_key.json relative to CWD.
+    // Derive the root directory from the provided JSON path.
+    let csca_json = fs::canonicalize(&cli.csca_json)
+        .with_context(|| format!("CSCA JSON not found: {}", cli.csca_json.display()))?;
+    let csca_root = csca_json
+        .parent()
+        .and_then(|p| p.parent())
+        .context("--csca-json must be inside a csca_registry/ directory")?;
+    env::set_current_dir(csca_root)
+        .with_context(|| format!("Failed to set CSCA root: {}", csca_root.display()))?;
+
+    let dg1_bytes = fs::read(&dg1_path)?;
+    let sod_bytes = fs::read(&sod_path)?;
 
     eprintln!("DG1: {} bytes, SOD: {} bytes", dg1_bytes.len(), sod_bytes.len());
 
@@ -66,14 +91,13 @@ fn main() -> Result<()> {
     eprintln!("Country: {country}, TBS cert: {} bytes", inputs.passport_validity_contents.dsc_cert_len);
 
     let r_dg1 = FieldHex::new(&cli.r_dg1).context("Invalid --r_dg1 hex value")?;
-    let result = pipeline::run_pipeline(&inputs, &cli.pkp_dir, &r_dg1, now)?;
+    let result = pipeline::run_pipeline(&inputs, &pkp_dir, &r_dg1, now)?;
 
     eprintln!("\nPipeline complete!");
     eprintln!("  Merkle leaf:        {}", result.leaf);
     eprintln!("  Scoped nullifier:   {}", result.scoped_nullifier);
 
-    if let Some(ref out_dir) = cli.output {
-        fs::create_dir_all(out_dir)?;
+    if let Some(ref out_dir) = output {
         file::write(&result.proof_stage1, &out_dir.join("proof_stage1.np"))?;
         file::write(&result.proof_stage2, &out_dir.join("proof_stage2.np"))?;
         file::write(&result.proof_stage3, &out_dir.join("proof_stage3.np"))?;
@@ -81,6 +105,5 @@ fn main() -> Result<()> {
         eprintln!("Proofs written to {}", out_dir.display());
     }
 
-    println!("{}", result.leaf);
     Ok(())
 }
