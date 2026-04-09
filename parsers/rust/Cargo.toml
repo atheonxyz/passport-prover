@@ -14,14 +14,14 @@ path = "src/main.rs"
 
 [dependencies]
 # ProveKit
-passport-input-gen = { git = "https://github.com/worldfnd/provekit", rev = "40a6e70d6dec349dd1b30255780fc80a03797128" }
-provekit-common = { git = "https://github.com/worldfnd/provekit", rev = "40a6e70d6dec349dd1b30255780fc80a03797128" }
-provekit-prover = { git = "https://github.com/worldfnd/provekit", rev = "40a6e70d6dec349dd1b30255780fc80a03797128" }
+passport-input-gen = { package = "provekit-passport-input-gen", version = "0.1.0" }
+provekit-common = "0.1.1"
+provekit-prover = "0.1.1"
 
 # Noir
-acir = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
-bn254_blackbox_solver = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
-noirc_abi = { git = "https://github.com/noir-lang/noir", rev = "v1.0.0-beta.11" }
+acir = { package = "provekit_acir", version = "1.0.0-beta.11-alpha.1" }
+bn254_blackbox_solver = { package = "provekit_bn254_blackbox_solver", version = "1.0.0-beta.11-alpha.1" }
+noirc_abi = { package = "provekit_noirc_abi", version = "1.0.0-beta.11-alpha.1" }
 
 # Crates.io
 anyhow = "1"
